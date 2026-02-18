@@ -103,7 +103,9 @@ export async function fetchPassage(
   if (!res.ok) {
     const text = await res.text();
     if (res.status === 401) {
-      console.error("API.Bible 401 Unauthorized. Check API_BIBLE_KEY: no spaces/newlines, key from https://scripture.api.bible (Dashboard). Key length:", apiBibleKey.length);
+      console.error(
+        "API.Bible 401 Unauthorized (bad api-key). Check: key from https://scripture.api.bible Dashboard, no extra spaces/newlines; app approved for this key; request goes to https://api.scripture.api.bible"
+      );
     }
     console.error("API.Bible error", res.status, text);
     return null;
