@@ -15,12 +15,11 @@
  *   [Abbreviation] (c) [Year] [Organization name.] All rights reserved.
  */
 
-/** Per-version citation data for the abbreviated SMS format. */
+/** Per-version citation data for the abbreviated SMS format. No attribution for KJV. */
 const VERSION_CITATION: Record<
   string,
   { abbreviation: string; year?: string; organization?: string }
 > = {
-  KJV: { abbreviation: "KJV" },
   ESV: { abbreviation: "ESV", year: "2011", organization: "Crossway" },
   NIV: { abbreviation: "NIV", year: "2011", organization: "Biblica" },
   NASB: { abbreviation: "NASB", year: "2020", organization: "The Lockman Foundation" },
@@ -29,13 +28,15 @@ const VERSION_CITATION: Record<
 
 /**
  * Build the abbreviated copyright citation for SMS.
- * KJV: version only. Others: "[Abbreviation] © [Year] [Organization.] All rights reserved."
+ * Returns empty string for KJV (no attribution). Others: "[Abbr] (c) [Year] [Org.] All rights reserved."
  */
 export function abbreviatedCitation(version: string): string {
   const v = version?.trim() || "KJV";
-  const key = Object.keys(VERSION_CITATION).find((k) => k.toLowerCase() === v.toLowerCase()) ?? "KJV";
+  if (v.toUpperCase() === "KJV") return "";
+  const key = Object.keys(VERSION_CITATION).find((k) => k.toLowerCase() === v.toLowerCase());
+  if (!key) return "";
   const { abbreviation, year, organization } = VERSION_CITATION[key];
-  if (!year || !organization) return abbreviation;
+  if (!year || !organization) return "";
   const org = organization.endsWith(".") ? organization : `${organization}.`;
   return `${abbreviation} (c) ${year} ${org} All rights reserved.`;
 }
