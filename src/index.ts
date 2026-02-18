@@ -98,4 +98,9 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
 const config = getConfig();
 app.listen(config.port, () => {
   console.log(`Bible Verse SMS webhook listening on port ${config.port}. POST /sms/incoming`);
+  if (config.apiBibleKey) {
+    console.log(`API_BIBLE_KEY: set, length=${config.apiBibleKey.length}`);
+  } else {
+    console.warn("API_BIBLE_KEY: not set");
+  }
 });

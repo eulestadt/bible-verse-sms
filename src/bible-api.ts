@@ -65,7 +65,8 @@ export async function fetchPassage(
   version: string,
   withContext: boolean
 ): Promise<BiblePassageResult | null> {
-  const apiBibleKey = getConfig().apiBibleKey;
+  // Read key directly from env so we send exactly what Railway/local env provides
+  const apiBibleKey = process.env.API_BIBLE_KEY;
   if (!apiBibleKey) {
     console.error("API_BIBLE_KEY not set");
     return null;
@@ -92,12 +93,11 @@ export async function fetchPassage(
   }
 
   const url = `${BASE}/${bibleId}/passages/${encodeURIComponent(passageId)}?content-type=text`;
-  const res = await fetch(url, {
-    headers: {
-      "api-key": apiBibleKey,
-      "Accept": "application/json",
-    },
-  });
+  const headers: Record<string, string> = {
+    "api-key": apiBibleKey,
+    "Accept": "application/json",
+  };
+  const res = await fetch(url, { headers });
 
   if (!res.ok) {
     const text = await res.text();
