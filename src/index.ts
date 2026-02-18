@@ -87,7 +87,9 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
 
   setImmediate(() => {
     handleIncomingSms(from, body).catch((err) => {
-      console.error("handleIncomingSms error", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      console.error("handleIncomingSms error", { message: msg, stack, body });
       sendSms(from, "Something went wrong. Please try again with a reference like John 3:16.").catch(() => {});
     });
   });

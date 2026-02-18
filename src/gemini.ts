@@ -36,25 +36,35 @@ export async function resolveReferenceAndVersion(
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  const result = await model.generateContent({
-    contents: [
-      {
-        role: "user",
-        parts: [{ text: `${REFERENCE_VERSION_PROMPT}\n\nUser wrote: "${userMessage}"` }],
-      },
-    ],
-  });
+  try {
+    const result = await model.generateContent({
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: `${REFERENCE_VERSION_PROMPT}\n\nUser wrote: "${userMessage}"` }],
+        },
+      ],
+    });
 
-  const response = result.response;
-  const text = response.text()?.trim() ?? "";
+    const response = result.response;
+    const text = response.text()?.trim() ?? "";
 
-  const lines = text.split(/\n/).map((s) => s.trim()).filter(Boolean);
-  const reference = lines[0]?.replace(/^reference:?\s*/i, "").trim() || "UNKNOWN";
-  const version = lines[1]?.replace(/^version:?\s*/i, "").trim() || "KJV";
+    if (!text) {
+      console.warn("Gemini returned empty or blocked response for:", userMessage);
+      return { reference: "UNKNOWN", version: "KJV", withContext };
+    }
 
-  return {
-    reference,
-    version,
-    withContext,
-  };
+    const lines = text.split(/\n/).map((s) => s.trim()).filter(Boolean);
+    const reference = lines[0]?.replace(/^reference:?\s*/i, "").trim() || "UNKNOWN";
+    const version = lines[1]?.replace(/^version:?\s*/i, "").trim() || "KJV";
+
+    return {
+      reference,
+      version,
+      withContext,
+    };
+  } catch (err) {
+    console.error("Gemini API error:", err instanceof Error ? err.message : err);
+    throw err;
+  }
 }
