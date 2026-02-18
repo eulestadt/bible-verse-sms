@@ -8,6 +8,9 @@ import { sendSms } from "./sms";
 
 const app = express();
 
+// Trust proxy (Railway, etc.) so req.protocol is https when Twilio calls us
+app.set("trust proxy", 1);
+
 // Twilio sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
 
