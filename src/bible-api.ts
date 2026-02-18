@@ -19,7 +19,7 @@ const BOOK_NAME_TO_ID: Record<string, string> = {
   jude: "JUD", revelation: "REV",
 };
 
-const BASE = "https://api.scripture.api.bible/v1/bibles";
+// Base URL: rest.api.bible; override with API_BIBLE_BASE_URL
 
 export interface BiblePassageResult {
   content: string;
@@ -92,7 +92,8 @@ export async function fetchPassage(
     }
   }
 
-  const url = `${BASE}/${bibleId}/passages/${encodeURIComponent(passageId)}?content-type=text`;
+  const baseUrl = getConfig().apiBibleBaseUrl;
+  const url = `${baseUrl}/${bibleId}/passages/${encodeURIComponent(passageId)}?content-type=text`;
   const headers: Record<string, string> = {
     "api-key": apiBibleKey,
     "Accept": "application/json",
@@ -103,7 +104,7 @@ export async function fetchPassage(
     const text = await res.text();
     if (res.status === 401) {
       console.error(
-        "API.Bible 401 Unauthorized (bad api-key). Check: key from https://scripture.api.bible Dashboard, no extra spaces/newlines; app approved for this key; request goes to https://api.scripture.api.bible"
+        "API.Bible 401 Unauthorized (bad api-key). Base URL: rest.api.bible; check API_BIBLE_BASE_URL if needed"
       );
     }
     console.error("API.Bible error", res.status, text);

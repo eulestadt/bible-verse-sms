@@ -32,6 +32,8 @@ export function getConfig() {
   const geminiApiKey = process.env.GEMINI_API_KEY;
   const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const apiBibleKey = process.env.API_BIBLE_KEY;
+  const apiBibleBaseUrl =
+    process.env.API_BIBLE_BASE_URL ?? "https://rest.api.bible/v1/bibles";
   const includeContextDefault = process.env.INCLUDE_CONTEXT_DEFAULT !== "false";
   const port = parseInt(process.env.PORT ?? "3000", 10);
 
@@ -42,6 +44,7 @@ export function getConfig() {
     geminiApiKey,
     geminiModel,
     apiBibleKey,
+    apiBibleBaseUrl,
     includeContextDefault,
     port,
   };
