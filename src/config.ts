@@ -31,7 +31,8 @@ export function getConfig() {
   const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
   const geminiApiKey = process.env.GEMINI_API_KEY;
   const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
-  const apiBibleKey = process.env.API_BIBLE_KEY;
+  // Trim to avoid 401 from newlines/spaces when pasting into Railway or .env
+  const apiBibleKey = process.env.API_BIBLE_KEY?.trim();
   const includeContextDefault = process.env.INCLUDE_CONTEXT_DEFAULT !== "false";
   const port = parseInt(process.env.PORT ?? "3000", 10);
 

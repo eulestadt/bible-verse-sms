@@ -65,11 +65,12 @@ export async function fetchPassage(
   version: string,
   withContext: boolean
 ): Promise<BiblePassageResult | null> {
-  const { apiBibleKey } = getConfig();
+  let apiBibleKey = getConfig().apiBibleKey;
   if (!apiBibleKey) {
     console.error("API_BIBLE_KEY not set");
     return null;
   }
+  apiBibleKey = apiBibleKey.trim();
 
   const bibleId = resolveVersionToBibleId(version);
   let passageId = referenceToPassageId(reference);
@@ -93,11 +94,17 @@ export async function fetchPassage(
 
   const url = `${BASE}/${bibleId}/passages/${encodeURIComponent(passageId)}?content-type=text`;
   const res = await fetch(url, {
-    headers: { "api-key": apiBibleKey },
+    headers: {
+      "api-key": apiBibleKey,
+      "Accept": "application/json",
+    },
   });
 
   if (!res.ok) {
     const text = await res.text();
+    if (res.status === 401) {
+      console.error("API.Bible 401 Unauthorized. Check API_BIBLE_KEY: no spaces/newlines, key from https://scripture.api.bible (Dashboard). Key length:", apiBibleKey.length);
+    }
     console.error("API.Bible error", res.status, text);
     return null;
   }

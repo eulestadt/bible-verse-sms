@@ -7,7 +7,7 @@ Text a phone number with a Bible reference (e.g. "John 3:16") or a partial quote
 1. Copy `.env.example` to `.env` and set:
    - **Twilio:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
    - **Gemini:** `GEMINI_API_KEY`
-   - **API.Bible:** `API_BIBLE_KEY` (from [scripture.api.bible](https://scripture.api.bible))
+   - **API.Bible:** `API_BIBLE_KEY` from [scripture.api.bible](https://scripture.api.bible) → sign in → Dashboard → API key. Paste the key with no extra spaces or newlines. If you get 401 "bad api-key", create a new key there and replace; ensure your app is approved for the key.
 2. In Twilio Console, set your phone number’s "A MESSAGE COMES IN" webhook to:  
    `https://your-host/sms/incoming` (POST).
 3. Optional: `INCLUDE_CONTEXT_DEFAULT=true` to add ±2 verses by default; or text "with context" in a message.
