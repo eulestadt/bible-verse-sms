@@ -65,12 +65,11 @@ export async function fetchPassage(
   version: string,
   withContext: boolean
 ): Promise<BiblePassageResult | null> {
-  let apiBibleKey = getConfig().apiBibleKey;
+  const apiBibleKey = getConfig().apiBibleKey;
   if (!apiBibleKey) {
     console.error("API_BIBLE_KEY not set");
     return null;
   }
-  apiBibleKey = apiBibleKey.trim();
 
   const bibleId = resolveVersionToBibleId(version);
   let passageId = referenceToPassageId(reference);
