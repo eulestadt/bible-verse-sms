@@ -37,7 +37,7 @@ async function handleIncomingSms(from: string, body: string) {
   );
 
   if (reference === "UNKNOWN") {
-    await sendSms(from, "Reply with a Bible reference (e.g. John 3:16) or a bit of the verse. Add a version like ESV or NIV, or we’ll use KJV.");
+    await sendSms(from, "Reply with a Bible reference (e.g. John 3:16) or a bit of the verse. Add a version like ESV, NIV, or NLT, or we’ll use KJV.");
     return;
   }
 
@@ -73,14 +73,14 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
   }
   if (bodyUpper === "HELP") {
     setImmediate(() =>
-      sendSms(from, "Bible Verse SMS: Text a reference (e.g. John 3:16) or part of a verse. Add ESV or NIV for other versions. Reply STOP to opt out. Support: see repo/terms where this service is documented.").catch(() => {})
+      sendSms(from, "Bible Verse SMS: Text a reference (e.g. John 3:16) or part of a verse. Add ESV, NIV, or NLT for other versions. Reply STOP to opt out. Support: see repo/terms where this service is documented.").catch(() => {})
     );
     return;
   }
 
   if (!body) {
     setImmediate(() =>
-      sendSms(from, "Text a Bible reference (e.g. John 3:16) or a bit of the verse. Add ESV or NIV for another version. Text HELP for help, STOP to opt out.").catch(() => {})
+      sendSms(from, "Text a Bible reference (e.g. John 3:16) or a bit of the verse. Add ESV, NIV, or NLT for another version. Text HELP for help, STOP to opt out.").catch(() => {})
     );
     return;
   }

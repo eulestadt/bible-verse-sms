@@ -1,6 +1,6 @@
 # Bible Verse SMS
 
-Text a phone number with a Bible reference (e.g. "John 3:16") or a partial quote; get back the verse. Uses **Gemini** to resolve references, **API.Bible** for text (default **KJV**; request ESV, NIV, NASB), and **Twilio** for SMS.
+Text a phone number with a Bible reference (e.g. "John 3:16") or a partial quote; get back the verse. Uses **Gemini** to resolve references, **API.Bible** for text (default **KJV**; request ESV, NIV, NASB, or NLT), and **Twilio** for SMS.
 
 ## Setup
 

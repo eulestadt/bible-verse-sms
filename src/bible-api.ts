@@ -1,5 +1,6 @@
 import { getConfig } from "./config";
 import { resolveVersionToBibleId } from "./version-map";
+import { abbreviatedCitation } from "./copyright-citation";
 
 /** API.Bible book name to book ID (e.g. John -> JHN). */
 const BOOK_NAME_TO_ID: Record<string, string> = {
@@ -112,16 +113,22 @@ export async function fetchPassage(
   }
 
   const data = (await res.json()) as {
-    data?: { content?: string; id?: string };
-    meta?: { fums?: string };
+    data?: { content?: string; id?: string; copyright?: string };
+    meta?: { fums?: string; copyright?: string };
   };
   const content = data?.data?.content?.trim();
   if (!content) return null;
 
+  const versionLabel = version || "KJV";
+  // Use abbreviated citation per API.Bible Terms (space-constrained format for SMS)
+  const copyright = data?.data?.copyright ?? data?.meta?.copyright
+    ? undefined
+    : abbreviatedCitation(versionLabel);
+
   return {
     content,
     reference,
-    version: version || "KJV",
-    copyright: "Scripture from API.Bible. Used with permission.",
+    version: versionLabel,
+    copyright: data?.data?.copyright ?? data?.meta?.copyright ?? abbreviatedCitation(versionLabel),
   };
 }

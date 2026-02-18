@@ -15,10 +15,13 @@ export function formatReply(
   }
 
   const versionLabel = passage.version || "KJV";
-  let body = `${passage.reference} (${versionLabel})\n\n${passage.content}`;
+  // Strip [...] (e.g. verse numbers) from content to maximize space for verse text
+  const content = passage.content.replace(/\s*\[[^\]]*\]\s*/g, " ").replace(/\s+/g, " ").trim();
+  // Compact format: reference + version, single newline, then content
+  let body = `${passage.reference} ${versionLabel}\n${content}`;
 
   if (passage.copyright) {
-    body += `\n\n${passage.copyright}`;
+    body += `\n${passage.copyright}`;
   }
 
   return body.trim();

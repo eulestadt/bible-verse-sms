@@ -21,6 +21,11 @@ export const VERSION_TO_BIBLE_ID: Record<string, string> = {
   // NASB
   nasb: "06125adad2d5898a-01",
   NASB: "06125adad2d5898a-01",
+  // NLT (New Living Translation)
+  nlt: "d6e14a625393b4da-01",
+  NLT: "d6e14a625393b4da-01",
+  "new living": "d6e14a625393b4da-01",
+  "New Living Translation": "d6e14a625393b4da-01",
 };
 
 export const DEFAULT_BIBLE_ID = VERSION_TO_BIBLE_ID["KJV"] ?? "de4e12af7f28f599-01";

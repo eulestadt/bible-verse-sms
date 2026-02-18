@@ -1,6 +1,7 @@
 import twilio from "twilio";
 import { getConfig } from "./config";
 import { segmentForSms } from "./formatter";
+import { toGsm7 } from "./gsm7";
 
 export async function sendSms(to: string, body: string): Promise<boolean> {
   const { twilioAccountSid, twilioAuthToken, twilioPhoneNumber } = getConfig();
@@ -10,7 +11,7 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
     return false;
   }
 
-  const segments = segmentForSms(body);
+  const segments = segmentForSms(toGsm7(body));
 
   try {
     const client = twilio(twilioAccountSid, twilioAuthToken);

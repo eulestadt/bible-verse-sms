@@ -14,7 +14,7 @@ By texting the Bible Verse SMS number, you agree to these terms and conditions.
 
 ## Description
 
-Bible Verse SMS is a text-message service that returns Bible verses on request. You send a message with a Bible reference (e.g. “John 3:16”) or a partial quote; the service looks up the verse and replies with the text in your chosen translation (default KJV; ESV, NIV, and NASB available). You may also request “with context” to receive surrounding verses.
+Bible Verse SMS is a text-message service that returns Bible verses on request. You send a message with a Bible reference (e.g. “John 3:16”) or a partial quote; the service looks up the verse and replies with the text in your chosen translation (default KJV; ESV, NIV, NASB, and NLT available). You may also request “with context” to receive surrounding verses.
 
 ---
 
