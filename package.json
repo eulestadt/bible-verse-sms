@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "test:twilio": "ts-node scripts/test-twilio.ts"
   },
   "engines": {
     "node": ">=18"

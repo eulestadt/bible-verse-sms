@@ -11,6 +11,14 @@ const app = express();
 // Twilio sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
 
+// Health check (for Railway / monitoring; optional)
+app.get("/", (_req: Request, res: Response) => {
+  res.status(200).send("Bible Verse SMS is running. Webhook: POST /sms/incoming");
+});
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({ ok: true, service: "bible-verse-sms" });
+});
+
 function validateTwilioSignature(req: Request, authToken: string): boolean {
   const signature = req.headers["x-twilio-signature"] as string | undefined;
   if (!signature) return false;

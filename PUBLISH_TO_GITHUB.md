@@ -37,15 +37,18 @@ git commit -m "Initial commit: Bible Verse SMS (Gemini + API.Bible + Twilio)"
 
 ## 3. Connect and push
 
-GitHub will show “push an existing repository from the command line.” Use your repo URL (replace `YOUR_USERNAME` with your GitHub username):
+GitHub will show “push an existing repository from the command line.” **Use the URL GitHub shows you** — either is fine:
+
+- **SSH** (e.g. `git@github.com:USERNAME/bible-verse-sms.git`) — uses your SSH key.
+- **HTTPS** (e.g. `https://github.com/USERNAME/bible-verse-sms.git`) — prompts for username and password or a [Personal Access Token](https://github.com/settings/tokens) if you have 2FA.
 
 ```bash
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/bible-verse-sms.git
+git remote add origin <paste the URL from GitHub>
 git push -u origin main
 ```
 
-If GitHub prompts for login, use a [Personal Access Token](https://github.com/settings/tokens) as the password (or use SSH if you have it set up).
+Example: `git remote add origin git@github.com:eulestadt/bible-verse-sms.git`
 
 ---
 
