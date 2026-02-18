@@ -120,15 +120,14 @@ export async function fetchPassage(
   if (!content) return null;
 
   const versionLabel = version || "KJV";
-  // Use abbreviated citation per API.Bible Terms (space-constrained format for SMS)
-  const copyright = data?.data?.copyright ?? data?.meta?.copyright
-    ? undefined
-    : abbreviatedCitation(versionLabel);
+  // Only our abbreviated citation for non-KJV; never use API data.copyright or meta.copyright
+  const copyright =
+    versionLabel.toUpperCase() === "KJV" ? undefined : abbreviatedCitation(versionLabel);
 
   return {
     content,
     reference,
     version: versionLabel,
-    copyright: data?.data?.copyright ?? data?.meta?.copyright ?? abbreviatedCitation(versionLabel),
+    copyright: copyright || undefined,
   };
 }
