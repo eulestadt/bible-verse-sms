@@ -20,7 +20,7 @@ export async function resolveReferenceAndVersion(
   userMessage: string,
   includeContextDefault: boolean
 ): Promise<ResolvedReference> {
-  const { geminiApiKey } = getConfig();
+  const { geminiApiKey, geminiModel } = getConfig();
   const withContext =
     includeContextDefault ||
     /\b(with\s+)?context\b/i.test(userMessage);
@@ -34,7 +34,7 @@ export async function resolveReferenceAndVersion(
   }
 
   const genAI = new GoogleGenerativeAI(geminiApiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: geminiModel });
 
   try {
     const result = await model.generateContent({

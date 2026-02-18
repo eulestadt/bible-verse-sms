@@ -30,6 +30,7 @@ export function getConfig() {
   const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
   const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
   const geminiApiKey = process.env.GEMINI_API_KEY;
+  const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash-lite";
   const apiBibleKey = process.env.API_BIBLE_KEY;
   const includeContextDefault = process.env.INCLUDE_CONTEXT_DEFAULT !== "false";
   const port = parseInt(process.env.PORT ?? "3000", 10);
@@ -39,6 +40,7 @@ export function getConfig() {
     twilioAuthToken,
     twilioPhoneNumber,
     geminiApiKey,
+    geminiModel,
     apiBibleKey,
     includeContextDefault,
     port,
