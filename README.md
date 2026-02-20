@@ -56,16 +56,20 @@ If credentials are valid you’ll see “Twilio credentials OK.” Sending a tes
 
 Incoming Twilio webhooks are validated with `X-Twilio-Signature` when `TWILIO_AUTH_TOKEN` is set.
 
-## Privacy Policy & Terms (A2P)
+## Website (Railway)
 
-For Twilio A2P Campaign registration, use direct links to this repo. After publishing to GitHub, use (replace `YOUR_USERNAME` and repo name if different):
+When hosted on Railway, the app serves:
 
-- **Privacy Policy URL:**  
-  `https://github.com/YOUR_USERNAME/bible-verse-sms/blob/main/PRIVACY.md`
-- **Terms and Conditions URL:**  
-  `https://github.com/YOUR_USERNAME/bible-verse-sms/blob/main/TERMS.md`
+- **/** — Landing page describing the texting service
+- **/privacy** — Privacy policy (from [PRIVACY.md](PRIVACY.md))
+- **/terms** — Terms and conditions (from [TERMS.md](TERMS.md))
 
-Documents: [PRIVACY.md](PRIVACY.md) | [TERMS.md](TERMS.md)
+Use these URLs for Twilio A2P registration:
+
+- **Privacy Policy URL:** `https://bible-verse-sms-production.up.railway.app/privacy`
+- **Terms and Conditions URL:** `https://bible-verse-sms-production.up.railway.app/terms`
+
+Documents in repo: [PRIVACY.md](PRIVACY.md) | [TERMS.md](TERMS.md)
 
 ### Using Twilio while A2P registration is in progress
 

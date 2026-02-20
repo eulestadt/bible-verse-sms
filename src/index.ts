@@ -5,6 +5,7 @@ import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
+import { LANDING_HTML, getPrivacyHtml, getTermsHtml } from "./views";
 
 const app = express();
 
@@ -14,10 +15,27 @@ app.set("trust proxy", 1);
 // Twilio sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
 
-// Health check (for Railway / monitoring; optional)
+// Public site (Railway): landing, privacy, terms
 app.get("/", (_req: Request, res: Response) => {
-  res.status(200).send("Bible Verse SMS is running. Webhook: POST /sms/incoming");
+  res.status(200).type("text/html").send(LANDING_HTML);
 });
+app.get("/privacy", (_req: Request, res: Response) => {
+  const html = getPrivacyHtml();
+  if (!html) {
+    res.status(404).send("Privacy policy not found.");
+    return;
+  }
+  res.status(200).type("text/html").send(html);
+});
+app.get("/terms", (_req: Request, res: Response) => {
+  const html = getTermsHtml();
+  if (!html) {
+    res.status(404).send("Terms not found.");
+    return;
+  }
+  res.status(200).type("text/html").send(html);
+});
+
 app.get("/health", (_req: Request, res: Response) => {
   res.status(200).json({ ok: true, service: "bible-verse-sms" });
 });
