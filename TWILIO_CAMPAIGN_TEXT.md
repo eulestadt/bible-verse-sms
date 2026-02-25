@@ -69,14 +69,34 @@ ESV (c) 2011 Crossway. All rights reserved.
 
 ## How do end-users consent to receive messages? (40–2048 characters)
 
-**This is the Call to Action (CTA) that was rejected. Use the full text below so reviewers can verify consent.**
+**Updated CTA with explicit YES opt-in. Paste this into the form.**
 
 ```
-End users consent to receive messages from Bible Verse SMS by initiating contact with our number: they send a text message (SMS) to our dedicated Bible Verse SMS phone number with a Bible reference (e.g., "John 3:16") or a partial quote. This is the only opt-in method for this campaign; there is no web form, in-store, verbal, or other consent method. By sending that first message, the user is requesting a one-time reply and consents to receive our reply message.
+End users consent to receive messages from Bible Verse SMS via a text-in + explicit YES opt-in flow. A user first texts our dedicated Bible Verse SMS phone number with a Bible reference (e.g., "John 3:16") or a partial quote. We do not send the verse immediately. Instead, we send an opt-in confirmation SMS that explains the program, states that replies are automated and one-time, discloses that message and data rates may apply, and provides STOP/HELP instructions. The user must explicitly reply YES to that opt-in message to confirm consent before we send the requested verse. This text-in + YES reply is the only opt-in method for this campaign; there is no web form, in-store, verbal, or other consent method.
 
-Message frequency: On-demand only. We do not send recurring or subscription messages. Each outbound message is a single reply to one user message. The user controls frequency by how often they text.
+After a number has replied YES once, that number is considered opted in. Message frequency: On-demand only. We do not send recurring or subscription messages. Each outbound message is a single automated reply to one user request, and the user controls frequency entirely by how often they text us with new references.
 
 Brand: Bible Verse SMS. Required disclosures: Message and data rates may apply. Terms and Conditions: https://bible-verse-sms-production.up.railway.app/terms. Privacy Policy: https://bible-verse-sms-production.up.railway.app/privacy. Opt-out: Reply STOP to stop receiving messages; reply HELP for help and support information. Twilio manages STOP and HELP keywords and confirmation messages for this number.
+```
+
+---
+
+## Opt-in Message
+
+**Put this in the “Opt-in Message” field. It matches the first SMS we send before the user replies YES.**
+
+```
+Bible Verse SMS: automated one-time verse reply per request. By replying YES, you consent to receive an automated SMS with the requested verse. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help.
+```
+
+---
+
+## Opt-in Keywords
+
+**Put this in the “Opt-in Keywords” field.**
+
+```
+YES
 ```
 
 ---

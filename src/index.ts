@@ -7,6 +7,12 @@ import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
 import { LANDING_HTML, getPrivacyHtml, getTermsHtml } from "./views";
 
+// In-memory opt-in state for CTA/consent flow.
+// For low-volume, this is sufficient to demonstrate that users explicitly opt in
+// before receiving automated verse replies. State resets on deploy/restart.
+const consentedNumbers = new Set<string>();
+const pendingFirstRequest = new Map<string, string>();
+
 const app = express();
 
 // Trust proxy (Railway, etc.) so req.protocol is https when Twilio calls us
@@ -92,6 +98,50 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
   if (bodyUpper === "HELP") {
     setImmediate(() =>
       sendSms(from, "Bible Verse SMS: Text a reference (e.g. John 3:16) or part of a verse. Add ESV, NIV, or NLT for other versions. Reply STOP to opt out. Support: see repo/terms where this service is documented.").catch(() => {})
+    );
+    return;
+  }
+
+  // CTA / Opt-In: require explicit YES before sending automated verse replies.
+  // First-time users (not yet opted in) receive an opt-in prompt; only after
+  // they reply YES do we send the requested verse and mark the number as opted in.
+  if (!consentedNumbers.has(from)) {
+    if (bodyUpper === "YES") {
+      const pending = pendingFirstRequest.get(from);
+      consentedNumbers.add(from);
+      pendingFirstRequest.delete(from);
+
+      const effectiveBody = (pending ?? "").trim();
+
+      if (!effectiveBody) {
+        setImmediate(() =>
+          sendSms(
+            from,
+            "You are opted in to Bible Verse SMS. Text a Bible reference (e.g. John 3:16) or part of a verse to get a one-time automated reply. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
+          ).catch(() => {})
+        );
+        return;
+      }
+
+      setImmediate(() => {
+        handleIncomingSms(from, effectiveBody).catch((err) => {
+          const msg = err instanceof Error ? err.message : String(err);
+          const stack = err instanceof Error ? err.stack : undefined;
+          console.error("handleIncomingSms error after opt-in", { message: msg, stack, effectiveBody });
+          sendSms(from, "Something went wrong. Please try again with a reference like John 3:16.").catch(() => {});
+        });
+      });
+      return;
+    }
+
+    // Not yet opted in and not replying YES: store this as the requested verse
+    // and send a clear opt-in CTA explaining automation, rates, and STOP/HELP.
+    pendingFirstRequest.set(from, body);
+    setImmediate(() =>
+      sendSms(
+        from,
+        "Bible Verse SMS: automated one-time verse reply per request. By replying YES, you consent to receive an automated SMS with the requested verse. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
+      ).catch(() => {})
     );
     return;
   }
