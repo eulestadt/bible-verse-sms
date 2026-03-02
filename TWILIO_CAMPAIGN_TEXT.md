@@ -2,6 +2,10 @@
 
 Use this text when re-registering your A2P campaign. GitHub username: **eulestadt** (URLs below use this).
 
+**Landing page (for reviewer verification):** The full call-to-action, required disclosures, and a **sample message flow** (screenshots of the opt-in conversation) are published at the landing page below. Point reviewers there to verify the CTA.
+
+**Landing page URL:** `https://bible.phoenixwang.com/`
+
 ---
 
 ## Campaign description
@@ -76,7 +80,9 @@ End users consent to receive messages from Bible Verse SMS via a text-in + expli
 
 After a number has replied YES once, that number is considered opted in. Message frequency: On-demand only. We do not send recurring or subscription messages. Each outbound message is a single automated reply to one user request, and the user controls frequency entirely by how often they text us with new references.
 
-Brand: Bible Verse SMS. Required disclosures: Message and data rates may apply. Terms and Conditions: https://bible-verse-sms-production.up.railway.app/terms. Privacy Policy: https://bible-verse-sms-production.up.railway.app/privacy. Opt-out: Reply STOP to stop receiving messages; reply HELP for help and support information. Twilio manages STOP and HELP keywords and confirmation messages for this number.
+Brand: Bible Verse SMS. Required disclosures: Message and data rates may apply. Terms and Conditions: https://bible.phoenixwang.com/terms. Privacy Policy: https://bible.phoenixwang.com/privacy. Opt-out: Reply STOP to stop receiving messages; reply HELP for help and support information. Twilio manages STOP and HELP keywords and confirmation messages for this number.
+
+The complete CTA, step-by-step opt-in flow, and a sample messaging chain (for verification) are published on our landing page: https://bible.phoenixwang.com/
 ```
 
 ---
@@ -106,7 +112,7 @@ YES
 **Use your Railway app URL (hosted with the app).**
 
 ```
-https://bible-verse-sms-production.up.railway.app/privacy
+https://bible.phoenixwang.com/privacy
 ```
 
 ---
@@ -116,8 +122,16 @@ https://bible-verse-sms-production.up.railway.app/privacy
 **Use your Railway app URL (hosted with the app).**
 
 ```
-https://bible-verse-sms-production.up.railway.app/terms
+https://bible.phoenixwang.com/terms
 ```
+
+---
+
+## What to tell Twilio / where to point reviewers
+
+- **Landing page:** Use **https://bible.phoenixwang.com/** as the single URL where reviewers can verify the CTA. The page includes: (1) a clear “How you consent (call to action)” section with the full opt-in flow and disclosures, and (2) a “Sample conversation” section with a visual message chain (user → opt-in CTA → user replies YES → verse reply).
+- In the **“How do end-users consent?”** field, paste the long CTA block above; it now ends with a sentence pointing to the landing page for verification.
+- If Twilio has a **“Message Flow / CTA”** note field or support ticket, add: *“Full CTA and sample message flow are published at https://bible.phoenixwang.com/ for reviewer verification.”*
 
 ---
 
@@ -125,10 +139,12 @@ https://bible-verse-sms-production.up.railway.app/terms
 
 1. **CTA / consent description** — Rewritten to clearly state: (a) the only opt-in method is text-in to your number, (b) no other methods (web, in-store, etc.), (c) on-demand only / no recurring, (d) brand name, (e) message and data rates may apply, (f) links to Terms and Privacy, (g) STOP and HELP opt-out. This addresses error 30909 (CTA incomplete or verification issue).
 
-2. **Terms URL** — Use TERMS.md for Terms and Conditions, not PRIVACY.md.
+2. **Landing page for verification** — The website at the landing URL now includes the full CTA text and a sample messaging chain so reviewers can verify the flow without logging in. The consent answer above points to this URL.
 
-3. **Sample messages** — Five samples matching actual SMS output (reference + version, content; non-KJV use abbreviated copyright line only, no API.Bible attribution).
+3. **Terms URL** — Use TERMS.md for Terms and Conditions, not PRIVACY.md.
 
-4. **Campaign description** — Clarifies on-demand, no subscription, and what the service does.
+4. **Sample messages** — Five samples matching actual SMS output (reference + version, content; non-KJV use abbreviated copyright line only, no API.Bible attribution).
 
-5. **Privacy & Terms URLs** — Served by your Railway app at `https://bible-verse-sms-production.up.railway.app/privacy` and `/terms`.
+5. **Campaign description** — Clarifies on-demand, no subscription, and what the service does.
+
+6. **Privacy & Terms URLs** — Served by your Railway app at `https://bible.phoenixwang.com/privacy` and `/terms`.

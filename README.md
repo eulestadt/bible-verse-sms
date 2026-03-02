@@ -39,8 +39,8 @@ If credentials are valid you’ll see “Twilio credentials OK.” Sending a tes
 
 ### Test on Railway
 
-1. **Confirm the app is up** — Open your Railway URL in a browser or run `curl https://YOUR-RAILWAY-URL.up.railway.app/`. You should see: `Bible Verse SMS is running. Webhook: POST /sms/incoming`. Or hit `/health` for `{"ok":true,"service":"bible-verse-sms"}`.
-2. **Point Twilio at Railway** — Twilio Console → Phone Numbers → your number → Messaging. Set **A MESSAGE COMES IN** to `https://YOUR-RAILWAY-URL.up.railway.app/sms/incoming` (HTTP POST). Save.
+1. **Confirm the app is up** — Open https://bible.phoenixwang.com/ in a browser or run `curl https://bible.phoenixwang.com/`. You should see the landing page. Or hit `/health` for `{"ok":true,"service":"bible-verse-sms"}`.
+2. **Point Twilio at the app** — Twilio Console → Phone Numbers → your number → Messaging. Set **A MESSAGE COMES IN** to `https://bible.phoenixwang.com/sms/incoming` (HTTP POST). Save.
 3. **Send a real SMS** — From your phone, text your Twilio number: e.g. `John 3:16`, `HELP`, or `Psalm 23:1-3 ESV`. If you get a reply, the full flow is working.
 4. **If it fails** — Check Railway logs (Deployments → View logs). Confirm all env vars are set (Twilio, Gemini, API.Bible) and the webhook URL is correct and uses `https://`.
 
@@ -66,8 +66,8 @@ When hosted on Railway, the app serves:
 
 Use these URLs for Twilio A2P registration:
 
-- **Privacy Policy URL:** `https://bible-verse-sms-production.up.railway.app/privacy`
-- **Terms and Conditions URL:** `https://bible-verse-sms-production.up.railway.app/terms`
+- **Privacy Policy URL:** `https://bible.phoenixwang.com/privacy`
+- **Terms and Conditions URL:** `https://bible.phoenixwang.com/terms`
 
 Documents in repo: [PRIVACY.md](PRIVACY.md) | [TERMS.md](TERMS.md)
 
