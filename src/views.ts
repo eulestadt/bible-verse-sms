@@ -164,12 +164,10 @@ export function getLandingHtml(): string {
     <header class="hero">
       <h1>Bible Verse SMS</h1>
       <p class="phone"><a href="tel:+17172971356">(717) 297-1356</a></p>
-      <p class="tagline">Text a Bible reference to get the verse back. No app, no sign-up. Message and data rates may apply.</p>
+      <p class="tagline">Text a Bible reference to get the verse back. No app, no sign-up. First-time users reply YES to opt in. Message and data rates may apply.</p>
     </header>
 
     <section>
-      <h2>Sample conversation</h2>
-      <p>Example of the opt-in flow: first-time users see the opt-in message and must reply YES before receiving the verse.</p>
       <div class="sample-conversation">
         <h3>Example message flow</h3>
         <div class="msg msg-user">John 3:16</div>
