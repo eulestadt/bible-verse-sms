@@ -5,7 +5,7 @@ import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
-import { LANDING_HTML, getPrivacyHtml, getTermsHtml } from "./views";
+import { getLandingHtml, getPrivacyHtml, getTermsHtml } from "./views";
 
 // In-memory opt-in state for CTA/consent flow.
 // For low-volume, this is sufficient to demonstrate that users explicitly opt in
@@ -23,7 +23,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // Public site (Railway): landing, privacy, terms
 app.get("/", (_req: Request, res: Response) => {
-  res.status(200).type("text/html").send(LANDING_HTML);
+  res.status(200).type("text/html").send(getLandingHtml());
 });
 app.get("/privacy", (_req: Request, res: Response) => {
   const html = getPrivacyHtml();
