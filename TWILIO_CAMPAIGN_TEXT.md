@@ -20,16 +20,22 @@ Bible Verse SMS is an on-demand text service. Users text our number with a Bible
 
 ## Sample messages (use all 5)
 
-These match the actual SMS output (reference + version, then content; non-KJV include abbreviated copyright line). No API.Bible attribution.
+Include the **opt-in as Sample #1** so reviewers see the exact CTA; then four verse examples. (If the form allows a 6th, add Matthew 11:28 ESV as below.)
 
-**Sample message #1**
+**Sample message #1 — Opt-in (CTA)**
+
+```
+Bible Verse SMS: automated one-time verse reply per request. By replying YES, you consent to receive an automated SMS with the requested verse. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help.
+```
+
+**Sample message #2**
 
 ```
 John 3:16 KJV
 For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.
 ```
 
-**Sample message #2**
+**Sample message #3**
 
 ```
 Psalm 23:1-3 ESV
@@ -37,7 +43,7 @@ Psalm 23:1-3 ESV
 ESV (c) 2011 Crossway. All rights reserved.
 ```
 
-**Sample message #3**
+**Sample message #4**
 
 ```
 Romans 8:28 NIV
@@ -45,14 +51,14 @@ And we know that in all things God works for the good of those who love him, who
 NIV (c) 2011 Biblica. All rights reserved.
 ```
 
-**Sample message #4**
+**Sample message #5**
 
 ```
 Proverbs 3:5-6 KJV
 5 Trust in the Lord with all thine heart; and lean not unto thine own understanding. 6 In all thy ways acknowledge him, and he shall direct thy paths.
 ```
 
-**Sample message #5**
+**Optional 6th sample** (if the form allows more than 5):
 
 ```
 Matthew 11:28 ESV
@@ -143,7 +149,7 @@ https://bible.phoenixwang.com/terms
 
 3. **Terms URL** — Use TERMS.md for Terms and Conditions, not PRIVACY.md.
 
-4. **Sample messages** — Five samples matching actual SMS output (reference + version, content; non-KJV use abbreviated copyright line only, no API.Bible attribution).
+4. **Sample messages** — Sample #1 is the opt-in CTA so reviewers see it in the list; samples 2–5 are verse examples. If the form allows a 6th, add Matthew 11:28 ESV.
 
 5. **Campaign description** — Clarifies on-demand, no subscription, and what the service does.
 
