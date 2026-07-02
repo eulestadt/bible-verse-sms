@@ -1,17 +1,10 @@
 import express, { Request, Response } from "express";
-import multer from "multer";
 import twilio from "twilio";
-import { CARRIERS, phoneFromGatewayEmail } from "./carriers";
-import {
-  addMessage,
-  getRecentHistory,
-  getSubscription,
-  subscribe,
-  unsubscribe,
-} from "./chat-store";
-import { generateChatReply } from "./chat-gemini";
+import { CARRIERS } from "./carriers";
+import { subscribe } from "./chat-store";
 import { getConfig } from "./config";
 import { isEmailConfigured, sendSmsViaEmail } from "./email";
+import { parseResendWebhookEvent, processResendInboundEmail } from "./inbound-email";
 import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
@@ -25,10 +18,42 @@ const consentedNumbers = new Set<string>();
 const pendingFirstRequest = new Map<string, string>();
 
 const app = express();
-const upload = multer();
 
 // Trust proxy (Railway, etc.) so req.protocol is https when Twilio calls us
 app.set("trust proxy", 1);
+
+// Resend inbound webhook must read the raw body for signature verification
+app.post("/email/incoming", express.raw({ type: "application/json" }), (req: Request, res: Response) => {
+  if (!isEmailConfigured()) {
+    res.status(503).send("Email chat not configured");
+    return;
+  }
+
+  const payload = req.body instanceof Buffer ? req.body.toString("utf8") : String(req.body ?? "");
+
+  let event: { type: string; data: { email_id: string } };
+  try {
+    event = parseResendWebhookEvent(payload, {
+      id: String(req.headers["svix-id"] ?? ""),
+      timestamp: String(req.headers["svix-timestamp"] ?? ""),
+      signature: String(req.headers["svix-signature"] ?? ""),
+    });
+  } catch (err) {
+    console.error("Resend webhook verification failed", err);
+    res.status(400).send("Invalid webhook");
+    return;
+  }
+
+  res.status(200).send("OK");
+
+  if (event.type !== "email.received") return;
+
+  setImmediate(() => {
+    processResendInboundEmail(event.data.email_id).catch((err) => {
+      console.error("processResendInboundEmail error", err);
+    });
+  });
+});
 
 // Twilio sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
@@ -120,86 +145,6 @@ async function handleIncomingSms(from: string, body: string) {
   const replyText = formatReply(passage, withContext);
   await sendSms(from, replyText);
 }
-
-async function handleIncomingChatEmail(fromField: string, textBody: string): Promise<void> {
-  const phone = phoneFromGatewayEmail(fromField);
-  if (!phone) {
-    console.warn("Could not parse phone from inbound email:", fromField);
-    return;
-  }
-
-  const sub = getSubscription(phone);
-  if (!sub || !sub.active) {
-    console.warn("Inbound chat from unregistered phone:", phone);
-    return;
-  }
-
-  let body = textBody.trim();
-  const quoteIdx = body.search(/\nOn .+ wrote:\s*\n/i);
-  if (quoteIdx > 0) body = body.slice(0, quoteIdx).trim();
-  body = body
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .join(" ")
-    .slice(0, 500);
-
-  const bodyUpper = body.toUpperCase();
-  if (bodyUpper === "STOP") {
-    unsubscribe(phone);
-    await sendSmsViaEmail(
-      phone,
-      sub.carrierId,
-      "You have been unsubscribed from AI Chat. Sign up again on our website to restart."
-    );
-    return;
-  }
-  if (bodyUpper === "HELP") {
-    await sendSmsViaEmail(
-      phone,
-      sub.carrierId,
-      "AI Chat: Text anything to chat with AI. Replies are automated. Msg&Data rates may apply. Reply STOP to opt out."
-    );
-    return;
-  }
-  if (!body) return;
-
-  const history = getRecentHistory(phone);
-  addMessage(phone, "user", body);
-
-  try {
-    const reply = await generateChatReply(body, history);
-    addMessage(phone, "assistant", reply);
-    await sendSmsViaEmail(phone, sub.carrierId, reply);
-  } catch (err) {
-    console.error("Chat reply error", err);
-    await sendSmsViaEmail(phone, sub.carrierId, "Something went wrong. Please try again in a moment.");
-  }
-}
-
-// Inbound email webhook (SendGrid Inbound Parse or compatible) posts multipart/form-data
-app.post("/email/incoming", upload.none(), (req: Request, res: Response) => {
-  const config = getConfig();
-
-  if (config.emailInboundSecret) {
-    const secret = req.query.secret ?? req.headers["x-inbound-secret"];
-    if (secret !== config.emailInboundSecret) {
-      res.status(403).send("Forbidden");
-      return;
-    }
-  }
-
-  res.status(200).send("OK");
-
-  const from = String(req.body?.from ?? "");
-  const text = String(req.body?.text ?? req.body?.html ?? "");
-
-  setImmediate(() => {
-    handleIncomingChatEmail(from, text).catch((err) => {
-      console.error("handleIncomingChatEmail error", err);
-    });
-  });
-});
 
 app.post("/sms/incoming", (req: Request, res: Response) => {
   const config = getConfig();
@@ -303,8 +248,11 @@ app.listen(config.port, () => {
     console.warn("API_BIBLE_KEY: not set");
   }
   if (isEmailConfigured()) {
-    console.log("Twilio Email API: configured for AI Chat email-to-SMS");
+    console.log("Resend: configured for AI Chat email-to-SMS");
+    if (!config.resendWebhookSecret) {
+      console.warn("RESEND_WEBHOOK_SECRET not set; inbound webhooks will not be signature-verified");
+    }
   } else {
-    console.warn("Twilio Email API: not configured (AI Chat signup disabled)");
+    console.warn("Resend: not configured (AI Chat signup disabled)");
   }
 });

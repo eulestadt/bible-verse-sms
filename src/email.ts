@@ -1,70 +1,47 @@
+import { Resend } from "resend";
 import { phoneToSmsEmail } from "./carriers";
 import { getConfig } from "./config";
 import { splitForSending } from "./chat-gemini";
 
-/** Twilio Email API — https://www.twilio.com/docs/email/api/getting-started */
-const TWILIO_EMAIL_API = "https://comms.twilio.com/v1/Emails";
-
-/** Carriers reject empty subjects; minimal subject for API + gateway compatibility. */
 const SMS_SUBJECT = "Message";
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function getEmailAuth(): { sid: string; secret: string } | null {
-  const { twilioAccountSid, twilioAuthToken } = getConfig();
-  if (!twilioAccountSid || !twilioAuthToken) return null;
-  return { sid: twilioAccountSid, secret: twilioAuthToken };
+function getResendClient(): Resend | null {
+  const { resendApiKey } = getConfig();
+  if (!resendApiKey) return null;
+  return new Resend(resendApiKey);
 }
 
 export function isEmailConfigured(): boolean {
-  const { sendgridFromEmail } = getConfig();
-  return Boolean(getEmailAuth() && sendgridFromEmail);
+  const { resendApiKey, resendFromEmail } = getConfig();
+  return Boolean(resendApiKey && resendFromEmail);
 }
 
-async function sendTwilioEmail(to: string, text: string): Promise<boolean> {
-  const auth = getEmailAuth();
-  const { sendgridFromEmail, sendgridFromName } = getConfig();
-  if (!auth || !sendgridFromEmail) {
-    console.error("Twilio Email not configured (TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN + SENDGRID_FROM_EMAIL)");
+function formatFromAddress(email: string, name: string): string {
+  return `${name} <${email}>`;
+}
+
+async function sendResendEmail(to: string, text: string): Promise<boolean> {
+  const resend = getResendClient();
+  const { resendFromEmail, resendFromName, resendInboundAddress } = getConfig();
+  if (!resend || !resendFromEmail) {
+    console.error("Resend not configured (RESEND_API_KEY + RESEND_FROM_EMAIL)");
     return false;
   }
 
-  const credentials = Buffer.from(`${auth.sid}:${auth.secret}`).toString("base64");
+  const { error } = await resend.emails.send({
+    from: formatFromAddress(resendFromEmail, resendFromName),
+    to: [to],
+    replyTo: resendInboundAddress,
+    subject: SMS_SUBJECT,
+    text,
+    tags: [{ name: "service", value: "ai-chat" }],
+  });
 
-  try {
-    const res = await fetch(TWILIO_EMAIL_API, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${credentials}`,
-      },
-      body: JSON.stringify({
-        from: { address: sendgridFromEmail, name: sendgridFromName },
-        to: [{ address: to }],
-        content: {
-          subject: SMS_SUBJECT,
-          text,
-          html: `<html><body><p>${escapeHtml(text)}</p></body></html>`,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text();
-      console.error("Twilio Email API error", res.status, errText);
-      return false;
-    }
-    return true;
-  } catch (err) {
-    console.error("Twilio Email send error", err);
+  if (error) {
+    console.error("Resend send error", error);
     return false;
   }
+  return true;
 }
 
 export async function sendSmsViaEmail(
@@ -84,7 +61,7 @@ export async function sendSmsViaEmail(
 
   try {
     for (const segment of segments) {
-      const sent = await sendTwilioEmail(to, segment);
+      const sent = await sendResendEmail(to, segment);
       if (!sent) return false;
       if (segments.length > 1) {
         await delay(400);
@@ -92,7 +69,7 @@ export async function sendSmsViaEmail(
     }
     return true;
   } catch (err) {
-    console.error("Twilio Email send error", err);
+    console.error("Resend send error", err);
     return false;
   }
 }

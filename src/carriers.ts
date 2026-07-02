@@ -46,7 +46,9 @@ export function phoneToSmsEmail(phone: string, carrierId: string): string | null
 
 /** Extract 10-digit phone from carrier gateway email (e.g. 5551234567@vtext.com). */
 export function phoneFromGatewayEmail(email: string): string | null {
-  const match = email.match(/(\d{10,11})@([\w.-]+)/i);
+  const angleMatch = email.match(/<([^>]+)>/);
+  const addr = (angleMatch ? angleMatch[1] : email).trim().toLowerCase();
+  const match = addr.match(/(\d{10,11})@([\w.-]+)/i);
   if (!match) return null;
   let digits = match[1];
   if (digits.length === 11 && digits.startsWith("1")) digits = digits.slice(1);

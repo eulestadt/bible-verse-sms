@@ -41,19 +41,11 @@ export function getConfig() {
     process.env.API_BIBLE_BASE_URL ?? "https://rest.api.bible/v1/bibles";
   const includeContextDefault = process.env.INCLUDE_CONTEXT_DEFAULT !== "false";
   const port = parseInt(process.env.PORT ?? "3000", 10);
-  const sendgridApiKey = process.env.SENDGRID_API_KEY ?? twilioAccountSid;
-  if (
-    process.env.SENDGRID_API_KEY &&
-    twilioAccountSid &&
-    process.env.SENDGRID_API_KEY !== twilioAccountSid
-  ) {
-    console.warn(
-      "SENDGRID_API_KEY and TWILIO_ACCOUNT_SID differ; using TWILIO_ACCOUNT_SID for Twilio Email API"
-    );
-  }
-  const sendgridFromEmail = process.env.SENDGRID_FROM_EMAIL;
-  const sendgridFromName = process.env.SENDGRID_FROM_NAME ?? "AI Chat";
-  const emailInboundSecret = process.env.EMAIL_INBOUND_WEBHOOK_SECRET;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendFromEmail = process.env.RESEND_FROM_EMAIL ?? "chat@bible.phoenixwang.com";
+  const resendFromName = process.env.RESEND_FROM_NAME ?? "AI Chat";
+  const resendInboundAddress = process.env.RESEND_INBOUND_ADDRESS ?? resendFromEmail;
+  const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET;
 
   return {
     twilioAccountSid,
@@ -65,10 +57,11 @@ export function getConfig() {
     apiBibleBaseUrl,
     includeContextDefault,
     port,
-    sendgridApiKey,
-    sendgridFromEmail,
-    sendgridFromName,
-    emailInboundSecret,
+    resendApiKey,
+    resendFromEmail,
+    resendFromName,
+    resendInboundAddress,
+    resendWebhookSecret,
   };
 }
 
