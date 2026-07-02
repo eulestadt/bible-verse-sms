@@ -1,6 +1,17 @@
 import express, { Request, Response } from "express";
+import multer from "multer";
 import twilio from "twilio";
+import { CARRIERS, phoneFromGatewayEmail } from "./carriers";
+import {
+  addMessage,
+  getRecentHistory,
+  getSubscription,
+  subscribe,
+  unsubscribe,
+} from "./chat-store";
+import { generateChatReply } from "./chat-gemini";
 import { getConfig } from "./config";
+import { sendSmsViaEmail } from "./email";
 import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
@@ -14,12 +25,14 @@ const consentedNumbers = new Set<string>();
 const pendingFirstRequest = new Map<string, string>();
 
 const app = express();
+const upload = multer();
 
 // Trust proxy (Railway, etc.) so req.protocol is https when Twilio calls us
 app.set("trust proxy", 1);
 
 // Twilio sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
 
 // Public site (Railway): landing, privacy, terms
 app.get("/", (_req: Request, res: Response) => {
@@ -43,7 +56,46 @@ app.get("/terms", (_req: Request, res: Response) => {
 });
 
 app.get("/health", (_req: Request, res: Response) => {
-  res.status(200).json({ ok: true, service: "bible-verse-sms" });
+  res.status(200).json({ ok: true, service: "bible-verse-sms", chat: true });
+});
+
+app.get("/api/chat/carriers", (_req: Request, res: Response) => {
+  res.json(CARRIERS.map(({ id, name }) => ({ id, name })));
+});
+
+app.post("/api/chat/signup", async (req: Request, res: Response) => {
+  const config = getConfig();
+  if (!config.sendgridApiKey || !config.sendgridFromEmail) {
+    res.status(503).json({ error: "Email chat is not configured yet." });
+    return;
+  }
+
+  const { phone, carrier, consent } = req.body ?? {};
+  if (!phone || !carrier) {
+    res.status(400).json({ error: "Phone number and carrier are required." });
+    return;
+  }
+  if (consent !== true && consent !== "true") {
+    res.status(400).json({ error: "You must consent to receive automated messages." });
+    return;
+  }
+
+  const sub = subscribe(String(phone), String(carrier));
+  if (!sub) {
+    res.status(400).json({ error: "Invalid phone number or carrier." });
+    return;
+  }
+
+  const welcome =
+    "You're signed up for AI Chat via text! Reply to this message to start a conversation. Msg&Data rates may apply. Reply STOP to opt out, HELP for help.";
+
+  const sent = await sendSmsViaEmail(sub.phone, sub.carrierId, welcome);
+  if (!sent) {
+    res.status(502).json({ error: "Could not send welcome message. Check your phone and carrier." });
+    return;
+  }
+
+  res.json({ ok: true, message: "Check your phone for a welcome text. Reply to start chatting!" });
 });
 
 function validateTwilioSignature(req: Request, authToken: string): boolean {
@@ -69,6 +121,86 @@ async function handleIncomingSms(from: string, body: string) {
   const replyText = formatReply(passage, withContext);
   await sendSms(from, replyText);
 }
+
+async function handleIncomingChatEmail(fromField: string, textBody: string): Promise<void> {
+  const phone = phoneFromGatewayEmail(fromField);
+  if (!phone) {
+    console.warn("Could not parse phone from inbound email:", fromField);
+    return;
+  }
+
+  const sub = getSubscription(phone);
+  if (!sub || !sub.active) {
+    console.warn("Inbound chat from unregistered phone:", phone);
+    return;
+  }
+
+  let body = textBody.trim();
+  const quoteIdx = body.search(/\nOn .+ wrote:\s*\n/i);
+  if (quoteIdx > 0) body = body.slice(0, quoteIdx).trim();
+  body = body
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .join(" ")
+    .slice(0, 500);
+
+  const bodyUpper = body.toUpperCase();
+  if (bodyUpper === "STOP") {
+    unsubscribe(phone);
+    await sendSmsViaEmail(
+      phone,
+      sub.carrierId,
+      "You have been unsubscribed from AI Chat. Sign up again on our website to restart."
+    );
+    return;
+  }
+  if (bodyUpper === "HELP") {
+    await sendSmsViaEmail(
+      phone,
+      sub.carrierId,
+      "AI Chat: Text anything to chat with AI. Replies are automated. Msg&Data rates may apply. Reply STOP to opt out."
+    );
+    return;
+  }
+  if (!body) return;
+
+  const history = getRecentHistory(phone);
+  addMessage(phone, "user", body);
+
+  try {
+    const reply = await generateChatReply(body, history);
+    addMessage(phone, "assistant", reply);
+    await sendSmsViaEmail(phone, sub.carrierId, reply);
+  } catch (err) {
+    console.error("Chat reply error", err);
+    await sendSmsViaEmail(phone, sub.carrierId, "Something went wrong. Please try again in a moment.");
+  }
+}
+
+// SendGrid Inbound Parse posts multipart/form-data
+app.post("/email/incoming", upload.none(), (req: Request, res: Response) => {
+  const config = getConfig();
+
+  if (config.emailInboundSecret) {
+    const secret = req.query.secret ?? req.headers["x-inbound-secret"];
+    if (secret !== config.emailInboundSecret) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+  }
+
+  res.status(200).send("OK");
+
+  const from = String(req.body?.from ?? "");
+  const text = String(req.body?.text ?? req.body?.html ?? "");
+
+  setImmediate(() => {
+    handleIncomingChatEmail(from, text).catch((err) => {
+      console.error("handleIncomingChatEmail error", err);
+    });
+  });
+});
 
 app.post("/sms/incoming", (req: Request, res: Response) => {
   const config = getConfig();
@@ -165,10 +297,15 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
 
 const config = getConfig();
 app.listen(config.port, () => {
-  console.log(`Bible Verse SMS webhook listening on port ${config.port}. POST /sms/incoming`);
+  console.log(`Bible Verse SMS webhook listening on port ${config.port}. POST /sms/incoming, POST /email/incoming`);
   if (config.apiBibleKey) {
     console.log(`API_BIBLE_KEY: set, length=${config.apiBibleKey.length}`);
   } else {
     console.warn("API_BIBLE_KEY: not set");
+  }
+  if (config.sendgridApiKey) {
+    console.log("SendGrid: configured for AI Chat email-to-SMS");
+  } else {
+    console.warn("SendGrid: not configured (AI Chat signup disabled)");
   }
 });

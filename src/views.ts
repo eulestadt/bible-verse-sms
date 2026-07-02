@@ -152,6 +152,20 @@ export function getLandingHtml(): string {
     footer { margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--border); font-size: 0.875rem; color: var(--muted); }
     footer a { color: var(--accent); text-decoration: none; }
     footer a:hover { text-decoration: underline; }
+    .section-divider { border: none; border-top: 2px solid var(--border); margin: 3rem 0; }
+    .chat-section { scroll-margin-top: 1rem; }
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.875rem; font-weight: 500; margin-bottom: 0.35rem; color: var(--text); }
+    .form-group input, .form-group select { width: 100%; padding: 0.65rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; font-size: 1rem; font-family: inherit; background: var(--card); }
+    .form-group input:focus, .form-group select:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+    .checkbox-group { display: flex; gap: 0.5rem; align-items: flex-start; font-size: 0.875rem; color: var(--muted); }
+    .checkbox-group input { width: auto; margin-top: 0.2rem; }
+    .btn { display: inline-block; width: 100%; padding: 0.75rem 1rem; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-size: 1rem; font-weight: 500; cursor: pointer; font-family: inherit; }
+    .btn:hover { opacity: 0.92; }
+    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+    .form-status { margin-top: 0.75rem; font-size: 0.875rem; min-height: 1.25rem; }
+    .form-status.success { color: var(--accent); }
+    .form-status.error { color: #b33; }
   </style>
 </head>
 <body>
@@ -198,10 +212,95 @@ export function getLandingHtml(): string {
       <p><strong>Disclosures:</strong> Message and data rates may apply. <a href="/terms">Terms and Conditions</a> · <a href="/privacy">Privacy Policy</a>. Reply <strong>STOP</strong> to opt out; reply <strong>HELP</strong> for help and support information.</p>
     </section>
 
+    <hr class="section-divider">
+
+    <section id="ai-chat" class="chat-section">
+      <h2>AI Chat via Text</h2>
+      <p>A separate service: sign up here to chat with AI over text. We email your carrier&apos;s SMS gateway (Verizon, AT&amp;T, T-Mobile, etc.) so messages arrive as texts on your phone. Replies are short, like a normal text conversation.</p>
+      <div class="card">
+        <form id="chat-signup-form">
+          <div class="form-group">
+            <label for="phone">Phone number</label>
+            <input type="tel" id="phone" name="phone" placeholder="5551234567" required autocomplete="tel">
+          </div>
+          <div class="form-group">
+            <label for="carrier">Phone carrier</label>
+            <select id="carrier" name="carrier" required>
+              <option value="">Select your carrier…</option>
+              <option value="verizon">Verizon</option>
+              <option value="att">AT&amp;T</option>
+              <option value="tmobile">T-Mobile</option>
+              <option value="sprint">Sprint / T-Mobile legacy</option>
+              <option value="uscellular">US Cellular</option>
+              <option value="cricket">Cricket</option>
+              <option value="metro">Metro by T-Mobile</option>
+              <option value="boost">Boost Mobile</option>
+              <option value="virgin">Virgin Mobile</option>
+              <option value="googlefi">Google Fi</option>
+            </select>
+          </div>
+          <div class="form-group checkbox-group">
+            <input type="checkbox" id="consent" name="consent" required>
+            <label for="consent">I consent to receive automated AI chat replies by text. Message and data rates may apply. Reply STOP to opt out.</label>
+          </div>
+          <button type="submit" class="btn" id="chat-submit">Sign up for AI Chat</button>
+          <p class="form-status" id="chat-status" role="status"></p>
+        </form>
+      </div>
+      <div class="sample-conversation">
+        <h3>Example AI chat flow</h3>
+        <div class="msg msg-service">You&apos;re signed up for AI Chat via text! Reply to this message to start a conversation.</div>
+        <div class="msg msg-user">What&apos;s a good verse about hope?</div>
+        <div class="msg msg-service">Romans 15:13 is great: &quot;May the God of hope fill you with joy and peace.&quot; Want the full verse?</div>
+      </div>
+      <p style="font-size: 0.875rem;">After signing up, reply to the welcome text on your phone. AI remembers messages from the last hour to keep replies in context. Each reply is kept short — usually one text, up to four if needed.</p>
+    </section>
+
     <footer>
       <a href="/privacy">Privacy Policy</a> · <a href="/terms">Terms and Conditions</a>
     </footer>
   </div>
+  <script>
+    (function () {
+      var form = document.getElementById("chat-signup-form");
+      var status = document.getElementById("chat-status");
+      var submitBtn = document.getElementById("chat-submit");
+      if (!form) return;
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        status.textContent = "";
+        status.className = "form-status";
+        submitBtn.disabled = true;
+
+        var phone = document.getElementById("phone").value.trim();
+        var carrier = document.getElementById("carrier").value;
+        var consent = document.getElementById("consent").checked;
+
+        fetch("/api/chat/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: phone, carrier: carrier, consent: consent })
+        })
+          .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
+          .then(function (result) {
+            if (result.ok) {
+              status.textContent = result.data.message || "Signed up! Check your phone.";
+              status.className = "form-status success";
+              form.reset();
+            } else {
+              status.textContent = result.data.error || "Something went wrong.";
+              status.className = "form-status error";
+            }
+          })
+          .catch(function () {
+            status.textContent = "Network error. Please try again.";
+            status.className = "form-status error";
+          })
+          .finally(function () { submitBtn.disabled = false; });
+      });
+    })();
+  </script>
 </body>
 </html>`;
 }
