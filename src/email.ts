@@ -5,8 +5,16 @@ import { splitForSending } from "./chat-gemini";
 /** Twilio Email API — https://www.twilio.com/docs/email/api/getting-started */
 const TWILIO_EMAIL_API = "https://comms.twilio.com/v1/Emails";
 
-/** Carriers reject empty subjects; a single dot satisfies min-length requirements. */
-const SMS_SUBJECT = ".";
+/** Carriers reject empty subjects; minimal subject for API + gateway compatibility. */
+const SMS_SUBJECT = "Message";
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 function getEmailAuth(): { sid: string; secret: string } | null {
   const { twilioAccountSid, twilioAuthToken } = getConfig();
@@ -42,6 +50,7 @@ async function sendTwilioEmail(to: string, text: string): Promise<boolean> {
         content: {
           subject: SMS_SUBJECT,
           text,
+          html: `<html><body><p>${escapeHtml(text)}</p></body></html>`,
         },
       }),
     });
