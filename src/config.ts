@@ -41,7 +41,16 @@ export function getConfig() {
     process.env.API_BIBLE_BASE_URL ?? "https://rest.api.bible/v1/bibles";
   const includeContextDefault = process.env.INCLUDE_CONTEXT_DEFAULT !== "false";
   const port = parseInt(process.env.PORT ?? "3000", 10);
-  const sendgridApiKey = process.env.SENDGRID_API_KEY;
+  const sendgridApiKey = process.env.SENDGRID_API_KEY ?? twilioAccountSid;
+  if (
+    process.env.SENDGRID_API_KEY &&
+    twilioAccountSid &&
+    process.env.SENDGRID_API_KEY !== twilioAccountSid
+  ) {
+    console.warn(
+      "SENDGRID_API_KEY and TWILIO_ACCOUNT_SID differ; using TWILIO_ACCOUNT_SID for Twilio Email API"
+    );
+  }
   const sendgridFromEmail = process.env.SENDGRID_FROM_EMAIL;
   const sendgridFromName = process.env.SENDGRID_FROM_NAME ?? "AI Chat";
   const emailInboundSecret = process.env.EMAIL_INBOUND_WEBHOOK_SECRET;

@@ -11,7 +11,7 @@ import {
 } from "./chat-store";
 import { generateChatReply } from "./chat-gemini";
 import { getConfig } from "./config";
-import { sendSmsViaEmail } from "./email";
+import { isEmailConfigured, sendSmsViaEmail } from "./email";
 import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
@@ -64,8 +64,7 @@ app.get("/api/chat/carriers", (_req: Request, res: Response) => {
 });
 
 app.post("/api/chat/signup", async (req: Request, res: Response) => {
-  const config = getConfig();
-  if (!config.sendgridApiKey || !config.sendgridFromEmail) {
+  if (!isEmailConfigured()) {
     res.status(503).json({ error: "Email chat is not configured yet." });
     return;
   }
@@ -178,7 +177,7 @@ async function handleIncomingChatEmail(fromField: string, textBody: string): Pro
   }
 }
 
-// SendGrid Inbound Parse posts multipart/form-data
+// Inbound email webhook (SendGrid Inbound Parse or compatible) posts multipart/form-data
 app.post("/email/incoming", upload.none(), (req: Request, res: Response) => {
   const config = getConfig();
 
@@ -303,9 +302,9 @@ app.listen(config.port, () => {
   } else {
     console.warn("API_BIBLE_KEY: not set");
   }
-  if (config.sendgridApiKey) {
-    console.log("SendGrid: configured for AI Chat email-to-SMS");
+  if (isEmailConfigured()) {
+    console.log("Twilio Email API: configured for AI Chat email-to-SMS");
   } else {
-    console.warn("SendGrid: not configured (AI Chat signup disabled)");
+    console.warn("Twilio Email API: not configured (AI Chat signup disabled)");
   }
 });
