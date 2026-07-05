@@ -28,6 +28,8 @@ export async function processInboundChat(phone: string, textBody: string): Promi
     return;
   }
 
+  console.log("AI Chat inbound SMS", { phone, carrierId: sub.carrierId });
+
   const body = normalizeInboundBody(textBody);
   const bodyUpper = body.toUpperCase();
 

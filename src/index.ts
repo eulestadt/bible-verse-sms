@@ -9,7 +9,7 @@ import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
-import { getTwilioCredentials, validateTwilioWebhook } from "./twilio-credentials";
+import { getTwilioCredentials, validateTwilioIncomingRequest } from "./twilio-credentials";
 import { getLandingHtml, getPrivacyHtml, getTermsHtml } from "./views";
 
 // In-memory opt-in state for CTA/consent flow.
@@ -146,9 +146,22 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
   const isApiKey = creds?.isApiKey ?? false;
 
   if (authToken) {
-    const url = `${req.protocol}://${req.get("host") ?? ""}${req.originalUrl}`;
-    const signature = req.headers["x-twilio-signature"] as string | undefined;
-    if (!validateTwilioWebhook(authToken, signature, url, req.body)) {
+    const { valid, triedUrls } = validateTwilioIncomingRequest(
+      {
+        protocol: req.protocol,
+        originalUrl: req.originalUrl,
+        headers: req.headers,
+        body: req.body ?? {},
+      },
+      authToken
+    );
+    if (!valid) {
+      console.warn("Twilio webhook signature validation failed", {
+        triedUrls,
+        host: req.get("host"),
+        forwardedHost: req.get("x-forwarded-host"),
+        hint: "Set TWILIO_WEBHOOK_URL to the exact URL configured in Twilio Console (Messaging webhook).",
+      });
       res.status(403).send("Forbidden");
       return;
     }
