@@ -1,4 +1,4 @@
-import twilio, { Twilio } from "twilio";
+import twilio from "twilio";
 
 /**
  * Resolve Twilio credentials from environment variables.
@@ -38,10 +38,11 @@ function readSecret(): string | undefined {
 }
 
 function readAccountSid(): string | undefined {
-  return (
-    process.env.TWILIO_ACCOUNT_SID ??
-    (readSid()?.startsWith("AC") ? readSid() : undefined)
-  );
+  const explicit = trimEnv(process.env.TWILIO_ACCOUNT_SID);
+  if (explicit?.startsWith("AC")) return explicit;
+  const sid = readSid();
+  if (sid?.startsWith("AC")) return sid;
+  return undefined;
 }
 
 function readAuthToken(): string | undefined {
@@ -84,24 +85,6 @@ export function getTwilioCredentials(): TwilioCredentials | null {
   return null;
 }
 
-/** Create an authenticated Twilio REST client per https://www.twilio.com/docs/usage/requests-to-twilio */
-export function createTwilioClient(): Twilio | null {
-  const accountSid = readAccountSid();
-  const authToken = readAuthToken();
-  const apiKey = readApiKey();
-  const apiSecret = readApiSecret();
-
-  if (apiKey && apiSecret && accountSid) {
-    return twilio(apiKey, apiSecret, { accountSid });
-  }
-
-  if (accountSid && (authToken ?? readSecret())) {
-    return twilio(accountSid, authToken ?? readSecret()!);
-  }
-
-  return null;
-}
-
 export function getWebhookValidationTokens(): string[] {
   const sid = readSid();
   const secret = readSecret();
@@ -112,11 +95,6 @@ export function getWebhookValidationTokens(): string[] {
   if (sid?.startsWith("AC") && secret && secret !== authToken) tokens.push(secret);
 
   return tokens;
-}
-
-export function isTwilioSmsConfigured(): boolean {
-  const creds = getTwilioCredentials();
-  return Boolean(creds && creds.phoneNumber && createTwilioClient());
 }
 
 function headerValue(

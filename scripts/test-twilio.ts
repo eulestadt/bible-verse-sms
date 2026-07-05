@@ -1,69 +1,42 @@
 /**
- * Test Twilio credentials and optionally send a test SMS.
- * Run: npx ts-node scripts/test-twilio.ts
- * Or with a phone number to send a test message: npx ts-node scripts/test-twilio.ts +15551234567
+ * Test Twilio webhook credentials (Auth Token for signature validation).
+ * Outbound SMS uses Resend email-to-SMS — see scripts/test-email.ts if present.
  *
- * @see https://www.twilio.com/docs/usage/requests-to-twilio
+ * Run: npx ts-node scripts/test-twilio.ts
+ *
+ * @see https://www.twilio.com/docs/usage/webhooks/webhooks-security
  */
 import dotenv from "dotenv";
 import path from "path";
-import { createTwilioClient, getTwilioCredentials, isTwilioSmsConfigured } from "../src/twilio-credentials";
+import { getTwilioCredentials, getWebhookValidationTokens } from "../src/twilio-credentials";
 
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
-async function main() {
+function main() {
   const creds = getTwilioCredentials();
-  const client = createTwilioClient();
-  const phoneNumber = creds?.phoneNumber;
+  const tokens = getWebhookValidationTokens();
 
-  if (!client || !creds) {
+  if (!creds) {
     console.error(
-      "Missing Twilio credentials. Set TWILIO_SID + TWILIO_CLIENT_SECRET (and TWILIO_ACCOUNT_SID if using an API Key). See .env.example"
+      "Missing Twilio credentials. Set TWILIO_SID + TWILIO_CLIENT_SECRET for webhook auth. See .env.example"
     );
     process.exit(1);
   }
 
-  if (creds.isApiKey) {
-    console.log("Using API Key auth (SK...) with account", creds.accountSid);
-  } else {
-    console.log("Using Account SID + Auth Token auth");
-  }
+  console.log("Twilio inbound webhook config:");
+  console.log("  Account SID:", creds.accountSid);
+  console.log("  API Key auth:", creds.isApiKey);
+  console.log("  Webhook validation token(s):", tokens.length);
+  console.log("  TWILIO_PHONE_NUMBER:", creds.phoneNumber ?? "(not set — inbound only, no REST outbound)");
 
-  // 1. Validate credentials by fetching account balance
-  try {
-    const balance = await client.balance.fetch();
-    console.log("Twilio credentials OK. Balance:", balance.balance, balance.currency);
-  } catch (err: unknown) {
-    console.error("Twilio credentials failed:", err instanceof Error ? err.message : err);
+  if (tokens.length === 0) {
+    console.warn(
+      "Set TWILIO_AUTH_TOKEN (Auth Token from twilio.com/console) to verify inbound webhook signatures."
+    );
     process.exit(1);
   }
 
-  if (!phoneNumber) {
-    console.log("TWILIO_PHONE_NUMBER not set. Set it in .env to send SMS.");
-    process.exit(0);
-  }
-
-  if (!isTwilioSmsConfigured()) {
-    console.warn("TWILIO_PHONE_NUMBER is set but full SMS config is incomplete.");
-  }
-
-  const toNumber = process.argv[2];
-  if (!toNumber) {
-    console.log("To test sending an SMS, run: npx ts-node scripts/test-twilio.ts +15551234567");
-    process.exit(0);
-  }
-
-  try {
-    const msg = await client.messages.create({
-      body: "Bible Verse SMS test. If you got this, Twilio is working.",
-      from: phoneNumber,
-      to: toNumber,
-    });
-    console.log("Test SMS sent. SID:", msg.sid);
-  } catch (err: unknown) {
-    console.error("Send failed:", err instanceof Error ? err.message : err);
-    process.exit(1);
-  }
+  console.log("OK — inbound Twilio webhooks can be validated. Outbound SMS is via Resend email gateway.");
 }
 
 main();

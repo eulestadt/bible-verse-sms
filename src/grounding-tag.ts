@@ -6,9 +6,7 @@ const MAX_TAG_LEN = 11;
 export function formatGroundingTag(metadata: GroundingMetadata | undefined): string {
   if (!metadata) return " Google";
 
-  const chunks =
-    (metadata as GroundingMetadata & { groundingChunks?: typeof metadata.groundingChuncks })
-      .groundingChunks ?? metadata.groundingChuncks;
+  const chunks = metadata.groundingChunks;
 
   const titleWord = chunks?.[0]?.web?.title?.trim().split(/\s+/)[0];
   const queryWord = metadata.webSearchQueries?.[0]?.trim().split(/\s+/)[0];
