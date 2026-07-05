@@ -1,27 +1,15 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSmsMaxChars, getSmsSegmentLimit, hasMmsFallback } from "./carriers";
+import { getSmsMaxChars, getSmsSegmentLimit } from "./carriers";
 import { getConfig } from "./config";
 import { segmentForSms } from "./formatter";
 import { toGsm7 } from "./gsm7";
 import { MAX_SMS_SEGMENTS } from "./sms-encoding";
 import type { ChatMessage } from "./chat-store";
 
-function buildChatSystemPrompt(carrierId: string): string {
-  const segmentLimit = getSmsSegmentLimit(carrierId);
-  const maxChars = getSmsMaxChars(carrierId);
-
-  if (hasMmsFallback(carrierId)) {
-    return `You are a friendly, helpful AI assistant. The user is texting you via SMS/MMS.
-
-Rules:
-- Strongly prefer ONE short reply (under ${segmentLimit} characters) — short messages deliver fastest via SMS.
-- Only use longer replies when needed; max ${maxChars} characters (delivered via slower MMS).
-- Be warm, direct, and conversational. No markdown, bullet lists, or long paragraphs.
-- If a topic needs more detail, give the essential answer briefly and offer to elaborate.
-- Do not mention that you are an AI unless asked.`;
-  }
-
-  return `You are a friendly, helpful AI assistant. The user is texting you via SMS (GSM-7, 160 characters per segment), so keep every reply short.
+function buildChatSystemPrompt(): string {
+  const segmentLimit = getSmsSegmentLimit();
+  const maxChars = getSmsMaxChars();
+  return `You are a friendly, helpful AI assistant. The user is texting you via SMS, so keep every reply short.
 
 Rules:
 - Prefer ONE text message (under ${segmentLimit} characters) when the answer fits.
@@ -45,7 +33,7 @@ export async function generateChatReply(
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({
     model: geminiModel,
-    systemInstruction: buildChatSystemPrompt(carrierId),
+    systemInstruction: buildChatSystemPrompt(),
   });
 
   const contents = history.map((m) => ({
@@ -67,16 +55,10 @@ export async function generateChatReply(
   }
 }
 
-/** Normalize and cap reply length for the user's carrier (SMS segments or MMS body). */
-export function trimToSmsSegments(text: string, carrierId: string): string {
+/** Normalize and cap reply to at most 4 email-to-SMS segments (120 chars each). */
+export function trimToSmsSegments(text: string, _carrierId: string): string {
   const normalized = toGsm7(text.replace(/\s+/g, " ").trim());
-  const maxChars = getSmsMaxChars(carrierId);
-
-  if (hasMmsFallback(carrierId)) {
-    return normalized.length <= maxChars ? normalized : normalized.slice(0, maxChars).trim();
-  }
-
-  const maxSegment = getSmsSegmentLimit(carrierId);
+  const maxSegment = getSmsSegmentLimit();
   const segments = segmentForSms(normalized, maxSegment);
   if (segments.length <= MAX_SMS_SEGMENTS) {
     return segments.join("\n");

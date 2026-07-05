@@ -2,6 +2,7 @@ import { Resend } from "resend";
 import { phoneToSmsEmail } from "./carriers";
 import { getConfig } from "./config";
 import { splitForSending } from "./formatter";
+import { EMAIL_SMS_SEGMENT_DELAY_MS } from "./sms-encoding";
 
 const SMS_SUBJECT = "Message";
 
@@ -51,19 +52,20 @@ export async function sendSmsViaEmail(
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
 
+  const to = phoneToSmsEmail(phone, carrierId);
+  if (!to) {
+    console.error("Invalid phone or carrier for SMS email:", phone, carrierId);
+    return false;
+  }
+
   const segments = splitForSending(body, carrierId);
 
   try {
-    for (const segment of segments) {
-      const to = phoneToSmsEmail(phone, carrierId, segment);
-      if (!to) {
-        console.error("Invalid phone or carrier for SMS email:", phone, carrierId);
-        return false;
-      }
-      const sent = await sendResendEmail(to, segment);
+    for (let i = 0; i < segments.length; i++) {
+      const sent = await sendResendEmail(to, segments[i]);
       if (!sent) return false;
-      if (segments.length > 1) {
-        await delay(400);
+      if (i < segments.length - 1) {
+        await delay(EMAIL_SMS_SEGMENT_DELAY_MS);
       }
     }
     return true;
