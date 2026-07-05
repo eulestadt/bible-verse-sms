@@ -1,14 +1,15 @@
 import express, { Request, Response } from "express";
-import twilio from "twilio";
 import { CARRIERS } from "./carriers";
 import { subscribe } from "./chat-store";
 import { getConfig } from "./config";
 import { isEmailConfigured, sendSmsViaEmail } from "./email";
+import { tryHandleChatSms } from "./inbound-chat";
 import { parseResendWebhookEvent, processResendInboundEmail } from "./inbound-email";
 import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
+import { getTwilioCredentials, validateTwilioWebhook } from "./twilio-credentials";
 import { getLandingHtml, getPrivacyHtml, getTermsHtml } from "./views";
 
 // In-memory opt-in state for CTA/consent flow.
@@ -111,7 +112,7 @@ app.post("/api/chat/signup", async (req: Request, res: Response) => {
   }
 
   const welcome =
-    "You're signed up for AI Chat via text! Reply to this message to start a conversation. Msg&Data rates may apply. Reply STOP to opt out, HELP for help.";
+    "You're signed up for AI Chat! Text our number to start chatting — replies come back as texts on your phone. Msg&Data rates may apply. Reply STOP to opt out, HELP for help.";
 
   const sent = await sendSmsViaEmail(sub.phone, sub.carrierId, welcome);
   if (!sent) {
@@ -119,15 +120,8 @@ app.post("/api/chat/signup", async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ ok: true, message: "Check your phone for a welcome text. Reply to start chatting!" });
+  res.json({ ok: true, message: "Check your phone for a welcome text, then text our number to start chatting!" });
 });
-
-function validateTwilioSignature(req: Request, authToken: string): boolean {
-  const signature = req.headers["x-twilio-signature"] as string | undefined;
-  if (!signature) return false;
-  const url = `${req.protocol}://${req.get("host") ?? ""}${req.originalUrl}`;
-  return twilio.validateRequest(authToken, signature, url, req.body);
-}
 
 async function handleIncomingSms(from: string, body: string) {
   const config = getConfig();
@@ -147,11 +141,21 @@ async function handleIncomingSms(from: string, body: string) {
 }
 
 app.post("/sms/incoming", (req: Request, res: Response) => {
-  const config = getConfig();
+  const creds = getTwilioCredentials();
+  const authToken = creds?.authToken;
+  const isApiKey = creds?.isApiKey ?? false;
 
-  if (config.twilioAuthToken && !validateTwilioSignature(req, config.twilioAuthToken)) {
-    res.status(403).send("Forbidden");
-    return;
+  if (authToken) {
+    const url = `${req.protocol}://${req.get("host") ?? ""}${req.originalUrl}`;
+    const signature = req.headers["x-twilio-signature"] as string | undefined;
+    if (!validateTwilioWebhook(authToken, signature, url, req.body)) {
+      res.status(403).send("Forbidden");
+      return;
+    }
+  } else if (isApiKey) {
+    console.warn(
+      "TWILIO_AUTH_TOKEN not set; skipping webhook signature validation. Add your Auth Token from twilio.com/console for production. See https://www.twilio.com/docs/usage/webhooks/webhooks-security"
+    );
   }
 
   const from = req.body?.From;
@@ -164,78 +168,71 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
 
   res.status(200).type("text/xml").send("<Response></Response>");
 
-  const bodyUpper = body.toUpperCase();
-  if (bodyUpper === "STOP") {
-    setImmediate(() =>
-      sendSms(from, "You have been unsubscribed from Bible Verse SMS. You will not receive further messages. Text again anytime to get verses.").catch(() => {})
-    );
-    return;
-  }
-  if (bodyUpper === "HELP") {
-    setImmediate(() =>
-      sendSms(from, "Bible Verse SMS: Text a reference (e.g. John 3:16) or part of a verse. Add ESV, NIV, or NLT for other versions. Reply STOP to opt out. Support: see repo/terms where this service is documented.").catch(() => {})
-    );
-    return;
-  }
+  setImmediate(async () => {
+    try {
+      // AI Chat: inbound via Twilio, outbound via email-to-SMS (avoids 10DLC for replies).
+      if (await tryHandleChatSms(from, body)) return;
 
-  // CTA / Opt-In: require explicit YES before sending automated verse replies.
-  // First-time users (not yet opted in) receive an opt-in prompt; only after
-  // they reply YES do we send the requested verse and mark the number as opted in.
-  if (!consentedNumbers.has(from)) {
-    if (bodyUpper === "YES") {
-      const pending = pendingFirstRequest.get(from);
-      consentedNumbers.add(from);
-      pendingFirstRequest.delete(from);
-
-      const effectiveBody = (pending ?? "").trim();
-
-      if (!effectiveBody) {
-        setImmediate(() =>
-          sendSms(
-            from,
-            "You are opted in to Bible Verse SMS. Text a Bible reference (e.g. John 3:16) or part of a verse to get a one-time automated reply. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
-          ).catch(() => {})
+      const bodyUpper = body.toUpperCase();
+      if (bodyUpper === "STOP") {
+        await sendSms(
+          from,
+          "You have been unsubscribed from Bible Verse SMS. You will not receive further messages. Text again anytime to get verses."
+        );
+        return;
+      }
+      if (bodyUpper === "HELP") {
+        await sendSms(
+          from,
+          "Bible Verse SMS: Text a reference (e.g. John 3:16) or part of a verse. Add ESV, NIV, or NLT for other versions. Reply STOP to opt out. Support: see repo/terms where this service is documented."
         );
         return;
       }
 
-      setImmediate(() => {
-        handleIncomingSms(from, effectiveBody).catch((err) => {
-          const msg = err instanceof Error ? err.message : String(err);
-          const stack = err instanceof Error ? err.stack : undefined;
-          console.error("handleIncomingSms error after opt-in", { message: msg, stack, effectiveBody });
-          sendSms(from, "Something went wrong. Please try again with a reference like John 3:16.").catch(() => {});
-        });
-      });
-      return;
-    }
+      // CTA / Opt-In: require explicit YES before sending automated verse replies.
+      if (!consentedNumbers.has(from)) {
+        if (bodyUpper === "YES") {
+          const pending = pendingFirstRequest.get(from);
+          consentedNumbers.add(from);
+          pendingFirstRequest.delete(from);
 
-    // Not yet opted in and not replying YES: store this as the requested verse
-    // and send a clear opt-in CTA explaining automation, rates, and STOP/HELP.
-    pendingFirstRequest.set(from, body);
-    setImmediate(() =>
-      sendSms(
-        from,
-        "Bible Verse SMS: automated one-time verse reply per request. By replying YES, you consent to receive an automated SMS with the requested verse. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
-      ).catch(() => {})
-    );
-    return;
-  }
+          const effectiveBody = (pending ?? "").trim();
 
-  if (!body) {
-    setImmediate(() =>
-      sendSms(from, "Text a Bible reference (e.g. John 3:16) or a bit of the verse. Add ESV, NIV, or NLT for another version. Text HELP for help, STOP to opt out.").catch(() => {})
-    );
-    return;
-  }
+          if (!effectiveBody) {
+            await sendSms(
+              from,
+              "You are opted in to Bible Verse SMS. Text a Bible reference (e.g. John 3:16) or part of a verse to get a one-time automated reply. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
+            );
+            return;
+          }
 
-  setImmediate(() => {
-    handleIncomingSms(from, body).catch((err) => {
+          await handleIncomingSms(from, effectiveBody);
+          return;
+        }
+
+        pendingFirstRequest.set(from, body);
+        await sendSms(
+          from,
+          "Bible Verse SMS: automated one-time verse reply per request. By replying YES, you consent to receive an automated SMS with the requested verse. Msg&Data Rates May Apply. Reply STOP to opt out, HELP for help."
+        );
+        return;
+      }
+
+      if (!body) {
+        await sendSms(
+          from,
+          "Text a Bible reference (e.g. John 3:16) or a bit of the verse. Add ESV, NIV, or NLT for another version. Text HELP for help, STOP to opt out."
+        );
+        return;
+      }
+
+      await handleIncomingSms(from, body);
+    } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
-      console.error("handleIncomingSms error", { message: msg, stack, body });
-      sendSms(from, "Something went wrong. Please try again with a reference like John 3:16.").catch(() => {});
-    });
+      console.error("SMS incoming handler error", { message: msg, stack, body });
+      await sendSms(from, "Something went wrong. Please try again with a reference like John 3:16.").catch(() => {});
+    }
   });
 });
 
@@ -248,7 +245,7 @@ app.listen(config.port, () => {
     console.warn("API_BIBLE_KEY: not set");
   }
   if (isEmailConfigured()) {
-    console.log("Resend: configured for AI Chat email-to-SMS");
+    console.log("Resend: configured for AI Chat outbound (email-to-SMS); inbound via Twilio /sms/incoming");
     if (!config.resendWebhookSecret) {
       console.warn("RESEND_WEBHOOK_SECRET not set; inbound webhooks will not be signature-verified");
     }

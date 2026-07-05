@@ -1,14 +1,7 @@
 import { Resend } from "resend";
 import { phoneFromGatewayEmail } from "./carriers";
-import {
-  addMessage,
-  getRecentHistory,
-  getSubscription,
-  unsubscribe,
-} from "./chat-store";
-import { generateChatReply } from "./chat-gemini";
+import { processInboundChat } from "./inbound-chat";
 import { getConfig } from "./config";
-import { sendSmsViaEmail } from "./email";
 
 export interface ResendWebhookHeaders {
   id: string;
@@ -53,18 +46,6 @@ function stripHtml(html: string): string {
     .trim();
 }
 
-function normalizeInboundBody(textBody: string): string {
-  let body = textBody.trim();
-  const quoteIdx = body.search(/\nOn .+ wrote:\s*\n/i);
-  if (quoteIdx > 0) body = body.slice(0, quoteIdx).trim();
-  return body
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .join(" ")
-    .slice(0, 500);
-}
-
 function isForInboundAddress(recipients: string[], inboundAddress: string): boolean {
   const target = inboundAddress.toLowerCase();
   return recipients.some((recipient) => recipient.toLowerCase().includes(target));
@@ -77,45 +58,7 @@ export async function processInboundChatEmail(fromField: string, textBody: strin
     return;
   }
 
-  const sub = getSubscription(phone);
-  if (!sub || !sub.active) {
-    console.warn("Inbound chat from unregistered phone:", phone);
-    return;
-  }
-
-  const body = normalizeInboundBody(textBody);
-  const bodyUpper = body.toUpperCase();
-
-  if (bodyUpper === "STOP") {
-    unsubscribe(phone);
-    await sendSmsViaEmail(
-      phone,
-      sub.carrierId,
-      "You have been unsubscribed from AI Chat. Sign up again on our website to restart."
-    );
-    return;
-  }
-  if (bodyUpper === "HELP") {
-    await sendSmsViaEmail(
-      phone,
-      sub.carrierId,
-      "AI Chat: Text anything to chat with AI. Replies are automated. Msg&Data rates may apply. Reply STOP to opt out."
-    );
-    return;
-  }
-  if (!body) return;
-
-  const history = getRecentHistory(phone);
-  addMessage(phone, "user", body);
-
-  try {
-    const reply = await generateChatReply(body, history);
-    addMessage(phone, "assistant", reply);
-    await sendSmsViaEmail(phone, sub.carrierId, reply);
-  } catch (err) {
-    console.error("Chat reply error", err);
-    await sendSmsViaEmail(phone, sub.carrierId, "Something went wrong. Please try again in a moment.");
-  }
+  await processInboundChat(phone, textBody);
 }
 
 export async function processResendInboundEmail(emailId: string): Promise<void> {

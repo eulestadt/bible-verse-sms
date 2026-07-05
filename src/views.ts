@@ -216,7 +216,7 @@ export function getLandingHtml(): string {
 
     <section id="ai-chat" class="chat-section">
       <h2>AI Chat via Text</h2>
-      <p>A separate service: sign up here to chat with AI over text. We email your carrier&apos;s SMS gateway (Verizon, AT&amp;T, T-Mobile, etc.) so messages arrive as texts on your phone. Replies are short, like a normal text conversation.</p>
+      <p>Sign up here, then <strong>text our number <a href="tel:+17172971356">(717) 297-1356</a></strong> to chat with AI. We send replies through your carrier&apos;s email-to-SMS gateway (Verizon, AT&amp;T, T-Mobile, etc.) so you don&apos;t need to reply to a separate thread — just keep texting our number.</p>
       <div class="card">
         <form id="chat-signup-form">
           <div class="form-group">
@@ -249,11 +249,11 @@ export function getLandingHtml(): string {
       </div>
       <div class="sample-conversation">
         <h3>Example AI chat flow</h3>
-        <div class="msg msg-service">You&apos;re signed up for AI Chat via text! Reply to this message to start a conversation.</div>
+        <div class="msg msg-service">You&apos;re signed up for AI Chat! Text (717) 297-1356 to start chatting.</div>
         <div class="msg msg-user">What&apos;s a good verse about hope?</div>
         <div class="msg msg-service">Romans 15:13 is great: &quot;May the God of hope fill you with joy and peace.&quot; Want the full verse?</div>
       </div>
-      <p style="font-size: 0.875rem;">After signing up, reply to the welcome text on your phone. AI remembers messages from the last hour to keep replies in context. Each reply is kept short — usually one text, up to four if needed.</p>
+      <p style="font-size: 0.875rem;">After signing up, text <a href="tel:+17172971356">(717) 297-1356</a> from the phone you registered. AI remembers messages from the last hour to keep replies in context. Each reply is kept short — usually one text, up to four if needed.</p>
     </section>
 
     <footer>

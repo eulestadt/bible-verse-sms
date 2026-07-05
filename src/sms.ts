@@ -1,12 +1,13 @@
-import twilio from "twilio";
-import { getConfig } from "./config";
+import { createTwilioClient, getTwilioCredentials, isTwilioSmsConfigured } from "./twilio-credentials";
 import { segmentForSms } from "./formatter";
 import { toGsm7 } from "./gsm7";
 
 export async function sendSms(to: string, body: string): Promise<boolean> {
-  const { twilioAccountSid, twilioAuthToken, twilioPhoneNumber } = getConfig();
+  const creds = getTwilioCredentials();
+  const client = createTwilioClient();
+  const phoneNumber = creds?.phoneNumber;
 
-  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+  if (!client || !phoneNumber || !isTwilioSmsConfigured()) {
     console.error("Twilio credentials or phone number not set");
     return false;
   }
@@ -14,12 +15,10 @@ export async function sendSms(to: string, body: string): Promise<boolean> {
   const segments = segmentForSms(toGsm7(body));
 
   try {
-    const client = twilio(twilioAccountSid, twilioAuthToken);
-
     for (const segment of segments) {
       await client.messages.create({
         body: segment,
-        from: twilioPhoneNumber,
+        from: phoneNumber,
         to,
       });
     }

@@ -1,4 +1,5 @@
 import dotenv from "dotenv";
+import { getTwilioCredentials } from "./twilio-credentials";
 
 dotenv.config();
 
@@ -31,9 +32,10 @@ export const VERSION_TO_BIBLE_ID: Record<string, string> = {
 export const DEFAULT_BIBLE_ID = VERSION_TO_BIBLE_ID["KJV"] ?? "de4e12af7f28f599-01";
 
 export function getConfig() {
-  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID;
-  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
-  const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
+  const twilio = getTwilioCredentials();
+  const twilioAccountSid = twilio?.accountSid;
+  const twilioAuthToken = twilio?.authToken;
+  const twilioPhoneNumber = twilio?.phoneNumber;
   const geminiApiKey = process.env.GEMINI_API_KEY;
   const geminiModel = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
   const apiBibleKey = process.env.API_BIBLE_KEY;

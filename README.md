@@ -5,7 +5,7 @@ Text a phone number with a Bible reference (e.g. "John 3:16") or a partial quote
 ## Setup
 
 1. Copy `.env.example` to `.env` and set:
-   - **Twilio:** `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_PHONE_NUMBER`
+   - **Twilio:** `TWILIO_SID`, `TWILIO_CLIENT_SECRET`, `TWILIO_PHONE_NUMBER` — see [Twilio API authentication](https://www.twilio.com/docs/usage/requests-to-twilio). If `TWILIO_SID` is an API Key (`SK...`), also set `TWILIO_ACCOUNT_SID` and `TWILIO_AUTH_TOKEN` (for webhook signature validation per [webhook security](https://www.twilio.com/docs/usage/webhooks/webhooks-security)). Legacy names `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` still work.
    - **Gemini:** `GEMINI_API_KEY`
    - **API.Bible:** `API_BIBLE_KEY` from [scripture.api.bible](https://scripture.api.bible) → sign in → Dashboard → API key. Paste the key with no extra spaces or newlines. If you get 401 "bad api-key", create a new key there and replace; ensure your app is approved for the key.
 2. In Twilio Console, set your phone number’s "A MESSAGE COMES IN" webhook to:  
@@ -44,6 +44,16 @@ If credentials are valid you’ll see “Twilio credentials OK.” Sending a tes
 3. **Send a real SMS** — From your phone, text your Twilio number: e.g. `John 3:16`, `HELP`, or `Psalm 23:1-3 ESV`. If you get a reply, the full flow is working.
 4. **If it fails** — Check Railway logs (Deployments → View logs). Confirm all env vars are set (Twilio, Gemini, API.Bible) and the webhook URL is correct and uses `https://`.
 
+#### Railway variable names (important)
+
+Railpack treats service variables as **build secrets**. Use **underscores only** — no spaces or mixed case like `TWILIO_Client Secret`. If a deploy fails with `secret TWILIO_Client not found`, delete any misnamed Twilio variables and recreate them as:
+
+- `TWILIO_SID`
+- `TWILIO_CLIENT_SECRET` (Auth Token or API Key Secret)
+- `TWILIO_PHONE_NUMBER`
+
+Then redeploy. If the error persists after fixing names, add `NO_CACHE=1` once and redeploy to clear a stale build plan.
+
 ## Usage
 
 - **John 3:16** → KJV verse.
@@ -54,7 +64,7 @@ If credentials are valid you’ll see “Twilio credentials OK.” Sending a tes
 
 ## Security
 
-Incoming Twilio webhooks are validated with `X-Twilio-Signature` when `TWILIO_AUTH_TOKEN` is set.
+Incoming Twilio webhooks are validated with `X-Twilio-Signature` when `TWILIO_AUTH_TOKEN` (or `TWILIO_CLIENT_SECRET` with Account SID auth) is set — see [webhook security](https://www.twilio.com/docs/usage/webhooks/webhooks-security).
 
 ## Website (Railway)
 
@@ -70,6 +80,21 @@ Use these URLs for Twilio A2P registration:
 - **Terms and Conditions URL:** `https://bible.phoenixwang.com/terms`
 
 Documents in repo: [PRIVACY.md](PRIVACY.md) | [TERMS.md](TERMS.md)
+
+## AI Chat (hybrid Twilio + email-to-SMS)
+
+AI Chat uses a hybrid path so you can chat without relying on carrier email replies (which many carriers no longer support) or Twilio 10DLC for outbound:
+
+1. **Sign up** on the landing page (`/#ai-chat`) with your phone number and carrier.
+2. **Text the Twilio number** (same number as Bible Verse SMS) to send messages — inbound arrives via Twilio webhook.
+3. **Replies** are sent through your carrier's email-to-SMS gateway via **Resend** (outbound only).
+
+Set these env vars in addition to Twilio:
+
+- `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `RESEND_WEBHOOK_SECRET`
+- Optional: `RESEND_INBOUND_ADDRESS`, `RESEND_FROM_NAME`
+
+The Resend inbound webhook (`POST /email/incoming`) is still supported as a fallback if carrier email replies work for you, but the recommended flow is to text the Twilio number after signing up.
 
 ### Using Twilio while A2P registration is in progress
 
