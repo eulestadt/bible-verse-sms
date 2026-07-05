@@ -44,6 +44,38 @@ export function getCarrierByGateway(gateway: string): Carrier | undefined {
   return byGateway.get(gateway.toLowerCase());
 }
 
+const CARRIER_ALIASES: Record<string, string> = {
+  verizon: "verizon",
+  vzw: "verizon",
+  att: "att",
+  "at&t": "att",
+  tmobile: "tmobile",
+  "t-mobile": "tmobile",
+  sprint: "sprint",
+  uscellular: "uscellular",
+  "us cellular": "uscellular",
+  cricket: "cricket",
+  metro: "metro",
+  "metro pcs": "metro",
+  boost: "boost",
+  virgin: "virgin",
+  googlefi: "googlefi",
+  "google fi": "googlefi",
+  fi: "googlefi",
+};
+
+/** Map free-text carrier name to carrier id (SMS signup). */
+export function resolveCarrierId(input: string): string | null {
+  const trimmed = input.trim().toLowerCase();
+  if (getCarrierById(trimmed)) return trimmed;
+  const compact = trimmed.replace(/\s+/g, " ");
+  if (getCarrierById(compact)) return compact;
+  const alias = CARRIER_ALIASES[trimmed] ?? CARRIER_ALIASES[compact.replace(/\s/g, "")];
+  if (alias) return alias;
+  const noSpace = trimmed.replace(/\s+/g, "");
+  return CARRIER_ALIASES[noSpace] ?? (getCarrierById(noSpace) ? noSpace : null);
+}
+
 /** Chars per email-to-SMS segment (120 — below 160 GSM-7 limit; room for carrier suffix). */
 export function getSmsSegmentLimit(_carrierId?: string): number {
   return EMAIL_SMS_CHARS_PER_SEGMENT;

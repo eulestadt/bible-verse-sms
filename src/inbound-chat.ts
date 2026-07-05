@@ -28,7 +28,7 @@ export async function processInboundChat(phone: string, textBody: string): Promi
     return;
   }
 
-  console.log("AI Chat inbound SMS", { phone, carrierId: sub.carrierId });
+  console.log("AI Chat inbound SMS", { phone, carrierId: sub.carrierId, zip: sub.zipCode });
 
   const body = normalizeInboundBody(textBody);
   const bodyUpper = body.toUpperCase();
@@ -56,7 +56,7 @@ export async function processInboundChat(phone: string, textBody: string): Promi
   addMessage(phone, "user", body);
 
   try {
-    const reply = await generateChatReply(body, history, sub.carrierId);
+    const reply = await generateChatReply(body, history, sub);
     addMessage(phone, "assistant", reply);
     await sendSmsViaEmail(phone, sub.carrierId, reply);
   } catch (err) {

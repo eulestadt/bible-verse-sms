@@ -216,12 +216,16 @@ export function getLandingHtml(): string {
 
     <section id="ai-chat" class="chat-section">
       <h2>AI Chat via Text</h2>
-      <p>Sign up here, then <strong>text our number <a href="tel:+17172971356">(717) 297-1356</a></strong> to chat with AI. Replies are sent via your carrier&apos;s email-to-SMS gateway (e.g. Verizon <span class="example">@vtext.com</span>).</p>
+      <p>Sign up here or <strong>text your ZIP code</strong> to <a href="tel:+17172971356">(717) 297-1356</a>, then text our number to chat. Weather and live questions use Google Search when needed.</p>
       <div class="card">
         <form id="chat-signup-form">
           <div class="form-group">
             <label for="phone">Phone number</label>
             <input type="tel" id="phone" name="phone" placeholder="5551234567" required autocomplete="tel">
+          </div>
+          <div class="form-group">
+            <label for="zip">ZIP code</label>
+            <input type="text" id="zip" name="zip" placeholder="17055" pattern="\\d{5}" maxlength="5" required autocomplete="postal-code" inputmode="numeric">
           </div>
           <div class="form-group">
             <label for="carrier">Phone carrier</label>
@@ -253,7 +257,7 @@ export function getLandingHtml(): string {
         <div class="msg msg-user">What&apos;s a good verse about hope?</div>
         <div class="msg msg-service">Romans 15:13 is great: &quot;May the God of hope fill you with joy and peace.&quot; Want the full verse?</div>
       </div>
-      <p style="font-size: 0.875rem;">After signing up, text <a href="tel:+17172971356">(717) 297-1356</a> from the phone you registered. AI remembers messages from the last hour to keep replies in context. Each reply is kept short — usually one text, up to four if needed.</p>
+      <p style="font-size: 0.875rem;">Or text a 5-digit ZIP to (717) 297-1356, reply with your carrier, then start chatting. ZIP is used for weather. Replies are capped at 120 characters per text.</p>
     </section>
 
     <footer>
@@ -275,12 +279,13 @@ export function getLandingHtml(): string {
 
         var phone = document.getElementById("phone").value.trim();
         var carrier = document.getElementById("carrier").value;
+        var zip = document.getElementById("zip").value.trim();
         var consent = document.getElementById("consent").checked;
 
         fetch("/api/chat/signup", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: phone, carrier: carrier, consent: consent })
+          body: JSON.stringify({ phone: phone, carrier: carrier, zip: zip, consent: consent })
         })
           .then(function (res) { return res.json().then(function (data) { return { ok: res.ok, data: data }; }); })
           .then(function (result) {

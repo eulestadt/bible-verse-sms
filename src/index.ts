@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { CARRIERS } from "./carriers";
-import { subscribe } from "./chat-store";
+import { tryHandleChatSignupSms } from "./chat-signup-sms";
+import { CHAT_WELCOME_SMS, subscribe } from "./chat-store";
 import { getConfig } from "./config";
 import { isEmailConfigured, sendSmsViaEmail } from "./email";
 import { tryHandleChatSms } from "./inbound-chat";
@@ -10,6 +11,7 @@ import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
 import { getTwilioCredentials, getWebhookValidationTokens, validateTwilioIncomingRequest } from "./twilio-credentials";
+import { normalizeZip } from "./zip";
 import { getLandingHtml, getPrivacyHtml, getTermsHtml } from "./views";
 
 // In-memory opt-in state for CTA/consent flow.
@@ -95,9 +97,13 @@ app.post("/api/chat/signup", async (req: Request, res: Response) => {
     return;
   }
 
-  const { phone, carrier, consent } = req.body ?? {};
-  if (!phone || !carrier) {
-    res.status(400).json({ error: "Phone number and carrier are required." });
+  const { phone, carrier, zip, consent } = req.body ?? {};
+  if (!phone || !carrier || !zip) {
+    res.status(400).json({ error: "Phone number, carrier, and ZIP code are required." });
+    return;
+  }
+  if (!normalizeZip(String(zip))) {
+    res.status(400).json({ error: "Enter a valid 5-digit US ZIP code." });
     return;
   }
   if (consent !== true && consent !== "true") {
@@ -105,16 +111,13 @@ app.post("/api/chat/signup", async (req: Request, res: Response) => {
     return;
   }
 
-  const sub = subscribe(String(phone), String(carrier));
+  const sub = subscribe(String(phone), String(carrier), String(zip));
   if (!sub) {
-    res.status(400).json({ error: "Invalid phone number or carrier." });
+    res.status(400).json({ error: "Invalid phone number, carrier, or ZIP code." });
     return;
   }
 
-  const welcome =
-    "Signed up! Text (717) 297-1356 to chat. STOP to quit.";
-
-  const sent = await sendSmsViaEmail(sub.phone, sub.carrierId, welcome);
+  const sent = await sendSmsViaEmail(sub.phone, sub.carrierId, CHAT_WELCOME_SMS);
   if (!sent) {
     res.status(502).json({ error: "Could not send welcome message. Check your phone and carrier." });
     return;
@@ -192,6 +195,8 @@ app.post("/sms/incoming", (req: Request, res: Response) => {
     try {
       // AI Chat: inbound via Twilio, outbound via email-to-SMS (avoids 10DLC for replies).
       if (await tryHandleChatSms(from, body)) return;
+
+      if (await tryHandleChatSignupSms(from, body)) return;
 
       const bodyUpper = body.toUpperCase();
       if (bodyUpper === "STOP") {
