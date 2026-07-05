@@ -1,10 +1,11 @@
 import type { BiblePassageResult } from "./bible-api";
-import { getSmsSegmentLimit, isMmsCarrier } from "./carriers";
+import { getSmsBodyLimit, hasMmsFallback } from "./carriers";
 import { toGsm7 } from "./gsm7";
 import {
   DEFAULT_SMS_SEGMENT,
   GSM7_CHARS_PER_SEGMENT,
   MAX_SMS_SEGMENTS,
+  MMS_EMAIL_TEXT_MAX,
 } from "./sms-encoding";
 
 /**
@@ -52,18 +53,20 @@ export function segmentForSms(text: string, maxSegment = GSM7_CHARS_PER_SEGMENT)
   return segments;
 }
 
-/** Split for outbound email-to-SMS/MMS; respects carrier encoding and MMS gateways. */
+/** Split for outbound email-to-SMS/MMS. Verizon: one vtext SMS if short, else one vzwpix MMS. */
 export function splitForSending(
   text: string,
   carrierId?: string,
   maxSegments = MAX_SMS_SEGMENTS
 ): string[] {
   const normalized = toGsm7(text.replace(/\s+/g, " ").trim());
-  const maxSegment = carrierId ? getSmsSegmentLimit(carrierId) : DEFAULT_SMS_SEGMENT;
 
-  if (carrierId && isMmsCarrier(carrierId)) {
-    return normalized.length <= maxSegment ? [normalized] : segmentForSms(normalized, maxSegment);
+  if (carrierId && hasMmsFallback(carrierId)) {
+    const smsLimit = getSmsBodyLimit(carrierId);
+    if (normalized.length <= smsLimit) return [normalized];
+    return [normalized.slice(0, MMS_EMAIL_TEXT_MAX)];
   }
 
+  const maxSegment = carrierId ? getSmsBodyLimit(carrierId) : DEFAULT_SMS_SEGMENT;
   return segmentForSms(normalized, maxSegment).slice(0, maxSegments);
 }

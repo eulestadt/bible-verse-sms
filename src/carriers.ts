@@ -1,3 +1,4 @@
+import { toGsm7 } from "./gsm7";
 import {
   DEFAULT_SMS_SEGMENT,
   GSM7_CHARS_PER_SEGMENT,
@@ -8,10 +9,11 @@ import {
 export interface Carrier {
   id: string;
   name: string;
+  /** Fast SMS email gateway (e.g. Verizon @vtext.com). */
   gateway: string;
-  /** Use carrier MMS email gateway (e.g. Verizon @vzwpix.com) for longer text without SMS suffix overhead. */
-  mms?: boolean;
-  /** Text appended by SMS gateways (not MMS); reduces usable chars per 160-char segment. */
+  /** Slower MMS gateway for longer text (e.g. Verizon @vzwpix.com). */
+  mmsGateway?: string;
+  /** Text appended by SMS gateways; reduces usable chars per 160-char segment. */
   smsSuffix?: string;
   /** Extra gateway domains that may appear on inbound reply emails. */
   inboundGateways?: string[];
@@ -22,8 +24,9 @@ export const CARRIERS: Carrier[] = [
   {
     id: "verizon",
     name: "Verizon",
-    gateway: "vzwpix.com",
-    mms: true,
+    gateway: "vtext.com",
+    mmsGateway: "vzwpix.com",
+    smsSuffix: "(Message)",
     inboundGateways: ["vtext.com", "vzwpix.com"],
   },
   { id: "att", name: "AT&T", gateway: "txt.att.net" },
@@ -42,6 +45,7 @@ const byGateway = new Map<string, Carrier>();
 
 for (const carrier of CARRIERS) {
   byGateway.set(carrier.gateway.toLowerCase(), carrier);
+  if (carrier.mmsGateway) byGateway.set(carrier.mmsGateway.toLowerCase(), carrier);
   for (const alias of carrier.inboundGateways ?? []) {
     byGateway.set(alias.toLowerCase(), carrier);
   }
@@ -55,23 +59,43 @@ export function getCarrierByGateway(gateway: string): Carrier | undefined {
   return byGateway.get(gateway.toLowerCase());
 }
 
-/** Max characters per outbound chunk for a carrier (GSM-7 segment or MMS email body). */
-export function getSmsSegmentLimit(carrierId?: string): number {
+/** GSM-7 chars that fit one SMS after carrier suffix (e.g. Verizon "(Message)"). */
+export function getSmsBodyLimit(carrierId?: string): number {
   const carrier = carrierId ? getCarrierById(carrierId) : undefined;
-  if (carrier?.mms) return MMS_EMAIL_TEXT_MAX;
   const suffixLen = carrier?.smsSuffix?.length ?? 0;
   return GSM7_CHARS_PER_SEGMENT - suffixLen;
 }
 
-/** Max total characters for one reply (segments × limit, or single MMS body). */
-export function getSmsMaxChars(carrierId?: string): number {
-  const carrier = carrierId ? getCarrierById(carrierId) : undefined;
-  if (carrier?.mms) return MMS_EMAIL_TEXT_MAX;
-  return getSmsSegmentLimit(carrierId) * MAX_SMS_SEGMENTS;
+/** Prefer this limit in AI prompts (one fast SMS segment). */
+export function getSmsSegmentLimit(carrierId?: string): number {
+  return carrierId ? getSmsBodyLimit(carrierId) : GSM7_CHARS_PER_SEGMENT;
 }
 
-export function isMmsCarrier(carrierId?: string): boolean {
-  return Boolean(carrierId && getCarrierById(carrierId)?.mms);
+/** Max total characters for one reply. */
+export function getSmsMaxChars(carrierId?: string): number {
+  const carrier = carrierId ? getCarrierById(carrierId) : undefined;
+  if (carrier?.mmsGateway) return MMS_EMAIL_TEXT_MAX;
+  return getSmsBodyLimit(carrierId) * MAX_SMS_SEGMENTS;
+}
+
+export function hasMmsFallback(carrierId?: string): boolean {
+  return Boolean(carrierId && getCarrierById(carrierId)?.mmsGateway);
+}
+
+/** Pick vtext for short Verizon text, vzwpix when over one SMS segment. */
+export function pickOutboundGateway(carrier: Carrier, normalizedBody: string): string {
+  if (carrier.mmsGateway) {
+    const smsLimit = GSM7_CHARS_PER_SEGMENT - (carrier.smsSuffix?.length ?? 0);
+    if (normalizedBody.length <= smsLimit) return carrier.gateway;
+    return carrier.mmsGateway;
+  }
+  return carrier.gateway;
+}
+
+export function usesMmsGateway(carrierId: string, normalizedBody: string): boolean {
+  const carrier = getCarrierById(carrierId);
+  if (!carrier?.mmsGateway) return false;
+  return pickOutboundGateway(carrier, normalizedBody) === carrier.mmsGateway;
 }
 
 /** Normalize to 10-digit US number; returns null if invalid. */
@@ -82,11 +106,15 @@ export function normalizePhone(input: string): string | null {
   return null;
 }
 
-export function phoneToSmsEmail(phone: string, carrierId: string): string | null {
+export function phoneToSmsEmail(phone: string, carrierId: string, body?: string): string | null {
   const normalized = normalizePhone(phone);
   const carrier = getCarrierById(carrierId);
   if (!normalized || !carrier) return null;
-  return `${normalized}@${carrier.gateway}`;
+  const gateway =
+    body !== undefined
+      ? pickOutboundGateway(carrier, toGsm7(body.replace(/\s+/g, " ").trim()))
+      : carrier.gateway;
+  return `${normalized}@${gateway}`;
 }
 
 /** Extract 10-digit phone from carrier gateway email (e.g. 5551234567@vzwpix.com). */

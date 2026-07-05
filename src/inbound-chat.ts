@@ -38,7 +38,7 @@ export async function processInboundChat(phone: string, textBody: string): Promi
     await sendSmsViaEmail(
       phone,
       sub.carrierId,
-      "You have been unsubscribed from AI Chat. Sign up again on our website to restart."
+      "Unsubscribed. Sign up again on our site to restart."
     );
     return;
   }
@@ -46,7 +46,7 @@ export async function processInboundChat(phone: string, textBody: string): Promi
     await sendSmsViaEmail(
       phone,
       sub.carrierId,
-      "AI Chat: Text our number to chat with AI. Replies are automated. Msg&Data rates may apply. Reply STOP to opt out."
+      "AI Chat: text (717) 297-1356. Reply STOP to quit."
     );
     return;
   }

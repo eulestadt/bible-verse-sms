@@ -112,7 +112,7 @@ app.post("/api/chat/signup", async (req: Request, res: Response) => {
   }
 
   const welcome =
-    "You're signed up for AI Chat! Text our number to start chatting — replies come back as texts on your phone. Msg&Data rates may apply. Reply STOP to opt out, HELP for help.";
+    "Signed up! Text (717) 297-1356 to chat. STOP to quit.";
 
   const sent = await sendSmsViaEmail(sub.phone, sub.carrierId, welcome);
   if (!sent) {

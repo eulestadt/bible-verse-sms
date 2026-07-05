@@ -51,16 +51,15 @@ export async function sendSmsViaEmail(
 ): Promise<boolean> {
   if (!isEmailConfigured()) return false;
 
-  const to = phoneToSmsEmail(phone, carrierId);
-  if (!to) {
-    console.error("Invalid phone or carrier for SMS email:", phone, carrierId);
-    return false;
-  }
-
   const segments = splitForSending(body, carrierId);
 
   try {
     for (const segment of segments) {
+      const to = phoneToSmsEmail(phone, carrierId, segment);
+      if (!to) {
+        console.error("Invalid phone or carrier for SMS email:", phone, carrierId);
+        return false;
+      }
       const sent = await sendResendEmail(to, segment);
       if (!sent) return false;
       if (segments.length > 1) {
