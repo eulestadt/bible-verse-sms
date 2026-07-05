@@ -5,19 +5,17 @@ import { getConfig } from "./config";
 import { segmentForSms } from "./formatter";
 import { formatGroundingTag } from "./grounding-tag";
 import { toGsm7 } from "./gsm7";
-import { needsGroundedSearch } from "./live-search-intent";
+import { augmentWeatherQuery, isWeatherQuery, needsGroundedSearch } from "./live-search-intent";
 import { MAX_SMS_SEGMENTS } from "./sms-encoding";
 import type { ChatMessage, ChatSubscription } from "./chat-store";
 
 /** @see https://ai.google.dev/gemini-api/docs/google-search — current models use googleSearch, not googleSearchRetrieval */
 const GOOGLE_SEARCH_TOOL: Tool[] = [{ googleSearch: {} } as Tool];
 
-function buildChatSystemPrompt(zipCode: string): string {
+function buildChatSystemPrompt(): string {
   const segmentLimit = getSmsSegmentLimit();
   const maxChars = getSmsMaxChars();
   return `You are a friendly, helpful AI assistant. The user is texting you via SMS, so keep every reply short.
-
-User ZIP code: ${zipCode} — use this for weather and local queries. NEVER ask the user for their location, city, or ZIP; you already have it.
 
 Rules:
 - Prefer ONE text message (under ${segmentLimit} characters) when the answer fits.
@@ -27,16 +25,13 @@ Rules:
 - Do not mention that you are an AI unless asked.`;
 }
 
-function buildGroundedChatSystemPrompt(zipCode: string): string {
+function buildGroundedChatSystemPrompt(): string {
   const segmentLimit = getSmsSegmentLimit();
   const maxChars = getSmsMaxChars();
   const bodyBudget = Math.max(60, segmentLimit - 12);
   return `You are a friendly, helpful AI assistant. The user is texting you via SMS about live/current information.
 
-User ZIP code: ${zipCode}. Use this for weather and local queries unless they name another place.
-
 Rules:
-- NEVER ask the user for their location, city, or ZIP. Search and answer immediately using ZIP ${zipCode} when the question is about weather or local conditions.
 - Use Google Search grounding for up-to-date facts.
 - Reply in ONE short SMS-friendly sentence (aim for under ${bodyBudget} characters).
 - Never exceed ${maxChars} characters total across segments.
@@ -44,22 +39,21 @@ Rules:
 - Do not mention that you are an AI unless asked.`;
 }
 
-/** Inject signup ZIP into vague weather/local queries so the model searches instead of asking. */
-function augmentGroundedQuery(userMessage: string, zipCode: string): string {
-  const text = userMessage.trim();
-  if (!text) return text;
+function buildWeatherGroundedSystemPrompt(zipCode: string): string {
+  const segmentLimit = getSmsSegmentLimit();
+  const maxChars = getSmsMaxChars();
+  const bodyBudget = Math.max(60, segmentLimit - 12);
+  return `You are a friendly, helpful AI assistant. The user is texting you via SMS about weather.
 
-  const hasZip = text.includes(zipCode) || /\b\d{5}\b/.test(text);
-  const namesPlace = /\b(in|at|for|near|around)\s+[A-Za-z]{2,}/i.test(text);
-  const isWeatherLocal =
-    /\b(weather|forecast|temperature|how (hot|cold|warm)|rain|snow|snowing|raining|sunny|cloudy|humidity|wind)\b/i.test(
-      text
-    ) || /\b(near me|my area|here|local)\b/i.test(text);
+User ZIP code: ${zipCode}. Use it for this weather question unless they name another place.
 
-  if (isWeatherLocal && !hasZip && !namesPlace) {
-    return `${text} in ${zipCode}`;
-  }
-  return text;
+Rules:
+- NEVER ask for their location, city, or ZIP. Search and answer immediately using ZIP ${zipCode}.
+- Use Google Search grounding for up-to-date conditions.
+- Reply in ONE short SMS-friendly sentence (aim for under ${bodyBudget} characters).
+- Never exceed ${maxChars} characters total across segments.
+- No markdown, URLs, or bullet lists.
+- Do not mention that you are an AI unless asked.`;
 }
 
 export async function generateChatReply(
@@ -70,13 +64,13 @@ export async function generateChatReply(
   if (needsGroundedSearch(userMessage)) {
     return generateGroundedChatReply(userMessage, history, sub);
   }
-  return generatePlainChatReply(userMessage, history, sub);
+  return generatePlainChatReply(userMessage, history, sub.carrierId);
 }
 
 async function generatePlainChatReply(
   userMessage: string,
   history: ChatMessage[],
-  sub: ChatSubscription
+  carrierId: string
 ): Promise<string> {
   const { geminiApiKey, geminiModel } = getConfig();
 
@@ -87,7 +81,7 @@ async function generatePlainChatReply(
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({
     model: geminiModel,
-    systemInstruction: buildChatSystemPrompt(sub.zipCode),
+    systemInstruction: buildChatSystemPrompt(),
   });
 
   const contents = buildContents(history, userMessage);
@@ -98,7 +92,7 @@ async function generatePlainChatReply(
     if (!text) {
       return "Sorry, I didn't get that. Could you try again?";
     }
-    return trimToSmsSegments(text, sub.carrierId);
+    return trimToSmsSegments(text, carrierId);
   } catch (err) {
     console.error("Gemini chat error", err instanceof Error ? err.message : err);
     throw err;
@@ -116,14 +110,18 @@ async function generateGroundedChatReply(
     return "AI chat is not configured yet. Please try again later.";
   }
 
+  const weather = isWeatherQuery(userMessage);
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({
     model: geminiModel,
-    systemInstruction: buildGroundedChatSystemPrompt(sub.zipCode),
+    systemInstruction: weather
+      ? buildWeatherGroundedSystemPrompt(sub.zipCode)
+      : buildGroundedChatSystemPrompt(),
     tools: GOOGLE_SEARCH_TOOL,
   });
 
-  const contents = buildContents(history, augmentGroundedQuery(userMessage, sub.zipCode));
+  const query = weather ? augmentWeatherQuery(userMessage, sub.zipCode) : userMessage;
+  const contents = buildContents(history, query);
 
   try {
     const result = await model.generateContent({ contents });
