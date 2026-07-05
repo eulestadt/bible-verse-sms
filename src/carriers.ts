@@ -2,11 +2,13 @@ export interface Carrier {
   id: string;
   name: string;
   gateway: string;
+  /** Text the carrier appends to each email-to-SMS message (counts against the 160-char limit). */
+  smsSuffix?: string;
 }
 
 /** US carrier SMS email gateways (email → phone as text). */
 export const CARRIERS: Carrier[] = [
-  { id: "verizon", name: "Verizon", gateway: "vtext.com" },
+  { id: "verizon", name: "Verizon", gateway: "vtext.com", smsSuffix: "(Message)" },
   { id: "att", name: "AT&T", gateway: "txt.att.net" },
   { id: "tmobile", name: "T-Mobile", gateway: "tmomail.net" },
   { id: "sprint", name: "Sprint / T-Mobile legacy", gateway: "messaging.sprintpcs.com" },
@@ -27,6 +29,15 @@ export function getCarrierById(id: string): Carrier | undefined {
 
 export function getCarrierByGateway(gateway: string): Carrier | undefined {
   return byGateway.get(gateway.toLowerCase());
+}
+
+const SMS_SEGMENT_LENGTH = 160;
+
+/** Max body length per email-to-SMS segment after carrier suffix overhead. */
+export function getSmsSegmentLimit(carrierId?: string): number {
+  const carrier = carrierId ? getCarrierById(carrierId) : undefined;
+  const suffixLen = carrier?.smsSuffix?.length ?? 0;
+  return SMS_SEGMENT_LENGTH - suffixLen;
 }
 
 /** Normalize to 10-digit US number; returns null if invalid. */

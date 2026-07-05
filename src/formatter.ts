@@ -1,6 +1,8 @@
 import type { BiblePassageResult } from "./bible-api";
+import { getSmsSegmentLimit } from "./carriers";
 
 const MAX_SMS_SEGMENT = 160;
+const MAX_SMS_SEGMENTS = 4;
 
 /**
  * Format verse + version label + optional context + attribution for SMS.
@@ -28,23 +30,35 @@ export function formatReply(
 }
 
 /**
- * Split long message into segments (each <= MAX_SMS_SEGMENT) if needed.
- * Twilio sends each as a separate SMS; for very long passages we don't split mid-word.
+ * Split long message into segments (each <= maxSegment) if needed.
+ * Twilio sends each as a separate SMS; email-to-SMS should pass a lower maxSegment
+ * when the carrier appends text (e.g. Verizon adds "(Message)").
  */
-export function segmentForSms(text: string): string[] {
-  if (text.length <= MAX_SMS_SEGMENT) return [text];
+export function segmentForSms(text: string, maxSegment = MAX_SMS_SEGMENT): string[] {
+  if (text.length <= maxSegment) return [text];
   const segments: string[] = [];
   let remaining = text;
   while (remaining.length > 0) {
-    if (remaining.length <= MAX_SMS_SEGMENT) {
+    if (remaining.length <= maxSegment) {
       segments.push(remaining);
       break;
     }
-    const chunk = remaining.slice(0, MAX_SMS_SEGMENT);
+    const chunk = remaining.slice(0, maxSegment);
     const lastSpace = chunk.lastIndexOf(" ");
-    const cut = lastSpace > MAX_SMS_SEGMENT * 0.5 ? lastSpace : MAX_SMS_SEGMENT;
+    const cut = lastSpace > maxSegment * 0.5 ? lastSpace : maxSegment;
     segments.push(remaining.slice(0, cut).trim());
     remaining = remaining.slice(cut).trim();
   }
   return segments;
+}
+
+/** Split for outbound email-to-SMS; respects carrier suffix overhead. */
+export function splitForSending(
+  text: string,
+  carrierId?: string,
+  maxSegments = MAX_SMS_SEGMENTS
+): string[] {
+  const normalized = text.replace(/\s+/g, " ").trim();
+  const maxSegment = carrierId ? getSmsSegmentLimit(carrierId) : MAX_SMS_SEGMENT;
+  return segmentForSms(normalized, maxSegment).slice(0, maxSegments);
 }

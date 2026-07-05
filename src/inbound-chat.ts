@@ -56,7 +56,7 @@ export async function processInboundChat(phone: string, textBody: string): Promi
   addMessage(phone, "user", body);
 
   try {
-    const reply = await generateChatReply(body, history);
+    const reply = await generateChatReply(body, history, sub.carrierId);
     addMessage(phone, "assistant", reply);
     await sendSmsViaEmail(phone, sub.carrierId, reply);
   } catch (err) {

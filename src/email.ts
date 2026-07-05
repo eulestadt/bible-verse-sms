@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 import { phoneToSmsEmail } from "./carriers";
 import { getConfig } from "./config";
-import { splitForSending } from "./chat-gemini";
+import { splitForSending } from "./formatter";
 
 const SMS_SUBJECT = "Message";
 
@@ -57,7 +57,7 @@ export async function sendSmsViaEmail(
     return false;
   }
 
-  const segments = splitForSending(body);
+  const segments = splitForSending(body, carrierId);
 
   try {
     for (const segment of segments) {
