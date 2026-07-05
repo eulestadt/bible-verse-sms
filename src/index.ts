@@ -9,7 +9,7 @@ import { fetchPassage } from "./bible-api";
 import { resolveReferenceAndVersion } from "./gemini";
 import { formatReply } from "./formatter";
 import { sendSms } from "./sms";
-import { getTwilioCredentials, validateTwilioIncomingRequest } from "./twilio-credentials";
+import { getTwilioCredentials, getWebhookValidationTokens, validateTwilioIncomingRequest } from "./twilio-credentials";
 import { getLandingHtml, getPrivacyHtml, getTermsHtml } from "./views";
 
 // In-memory opt-in state for CTA/consent flow.
@@ -142,25 +142,32 @@ async function handleIncomingSms(from: string, body: string) {
 
 app.post("/sms/incoming", (req: Request, res: Response) => {
   const creds = getTwilioCredentials();
-  const authToken = creds?.authToken;
   const isApiKey = creds?.isApiKey ?? false;
+  const webhookTokens = getWebhookValidationTokens();
+  const skipValidation = process.env.TWILIO_SKIP_WEBHOOK_VALIDATION === "true";
 
-  if (authToken) {
-    const { valid, triedUrls } = validateTwilioIncomingRequest(
-      {
-        protocol: req.protocol,
-        originalUrl: req.originalUrl,
-        headers: req.headers,
-        body: req.body ?? {},
-      },
-      authToken
+  if (skipValidation) {
+    console.warn(
+      "TWILIO_SKIP_WEBHOOK_VALIDATION=true — inbound SMS accepted without signature check. Remove for production."
     );
+  } else if (webhookTokens.length > 0) {
+    const { valid, triedUrls, paramCount } = validateTwilioIncomingRequest({
+      protocol: req.protocol,
+      originalUrl: req.originalUrl,
+      headers: req.headers,
+      body: req.body ?? {},
+    });
     if (!valid) {
       console.warn("Twilio webhook signature validation failed", {
         triedUrls,
+        paramCount,
+        from: req.body?.From,
         host: req.get("host"),
         forwardedHost: req.get("x-forwarded-host"),
-        hint: "Set TWILIO_WEBHOOK_URL to the exact URL configured in Twilio Console (Messaging webhook).",
+        tokenSources: webhookTokens.length,
+        hint:
+          "Set TWILIO_AUTH_TOKEN to your Auth Token from twilio.com/console (Account Dashboard). " +
+          "It is NOT an API Key Secret or OAuth Client Secret. See https://www.twilio.com/docs/usage/webhooks/webhooks-security",
       });
       res.status(403).send("Forbidden");
       return;
@@ -264,5 +271,15 @@ app.listen(config.port, () => {
     }
   } else {
     console.warn("Resend: not configured (AI Chat signup disabled)");
+  }
+  const webhookTokens = getWebhookValidationTokens();
+  if (process.env.TWILIO_SKIP_WEBHOOK_VALIDATION === "true") {
+    console.warn("TWILIO_SKIP_WEBHOOK_VALIDATION=true — Twilio webhook signatures are NOT verified");
+  } else if (webhookTokens.length > 0) {
+    console.log(
+      `Twilio webhook validation: ${webhookTokens.length} token(s), URL=${process.env.TWILIO_WEBHOOK_URL ?? "auto"}`
+    );
+  } else {
+    console.warn("Twilio webhook validation disabled — set TWILIO_AUTH_TOKEN (Auth Token from twilio.com/console)");
   }
 });

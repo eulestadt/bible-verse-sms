@@ -102,6 +102,18 @@ export function createTwilioClient(): Twilio | null {
   return null;
 }
 
+export function getWebhookValidationTokens(): string[] {
+  const sid = readSid();
+  const secret = readSecret();
+  const tokens: string[] = [];
+
+  const authToken = trimEnv(process.env.TWILIO_AUTH_TOKEN);
+  if (authToken) tokens.push(authToken);
+  if (sid?.startsWith("AC") && secret && secret !== authToken) tokens.push(secret);
+
+  return tokens;
+}
+
 export function isTwilioSmsConfigured(): boolean {
   const creds = getTwilioCredentials();
   return Boolean(creds && creds.phoneNumber && createTwilioClient());
@@ -124,25 +136,28 @@ export interface TwilioWebhookRequest {
 }
 
 /** Candidate URLs Twilio may have signed — must match the webhook URL in Twilio Console exactly. */
-export function buildTwilioWebhookUrls(req: TwilioWebhookRequest): string[] {
+export function buildTwilioWebhookValidationOptions(
+  req: TwilioWebhookRequest
+): Array<{ url?: string; host?: string; protocol?: string }> {
   const path = req.originalUrl.split("?")[0];
-  const urls = new Set<string>();
+  const options: Array<{ url?: string; host?: string; protocol?: string }> = [];
 
   const explicit = trimEnv(process.env.TWILIO_WEBHOOK_URL);
-  if (explicit) urls.add(explicit.split("?")[0]);
+  if (explicit) options.push({ url: explicit.split("?")[0] });
 
-  const forwardedProto = headerValue(req.headers, "x-forwarded-proto");
   const forwardedHost = headerValue(req.headers, "x-forwarded-host");
   const host = headerValue(req.headers, "host");
-
   for (const h of [forwardedHost, host]) {
-    if (!h) continue;
-    urls.add(`https://${h}${path}`);
-    const proto = forwardedProto ?? req.protocol;
-    if (proto) urls.add(`${proto}://${h}${path}`);
+    if (h) options.push({ host: h, protocol: "https" });
   }
 
-  return [...urls];
+  // Fallback: reconstructed URL (Twilio SDK default)
+  const forwardedProto = headerValue(req.headers, "x-forwarded-proto") ?? req.protocol;
+  if (host) {
+    options.push({ url: `${forwardedProto}://${host}${path}` });
+  }
+
+  return options;
 }
 
 export function validateTwilioWebhook(
@@ -155,16 +170,33 @@ export function validateTwilioWebhook(
   return twilio.validateRequest(authToken.trim(), signature, url, params);
 }
 
-/** Try each candidate URL — fixes 403 when Twilio posts to a custom domain behind a proxy. */
+/** Validate using Twilio's Express helper — tries multiple tokens and URL options. */
 export function validateTwilioIncomingRequest(
   req: TwilioWebhookRequest,
-  authToken: string
-): { valid: boolean; triedUrls: string[] } {
-  const signature = headerValue(req.headers, "x-twilio-signature");
-  const triedUrls = buildTwilioWebhookUrls(req);
-  const params = req.body ?? {};
-  const token = authToken.trim();
+  _authToken?: string
+): { valid: boolean; triedUrls: string[]; paramCount: number } {
+  const expressReq = {
+    protocol: req.protocol,
+    originalUrl: req.originalUrl,
+    headers: req.headers,
+    body: req.body ?? {},
+    header: (name: string) => headerValue(req.headers, name.toLowerCase()),
+  };
 
-  const valid = triedUrls.some((url) => validateTwilioWebhook(token, signature, url, params));
-  return { valid, triedUrls };
+  const tokens = getWebhookValidationTokens();
+  const validationOptions = buildTwilioWebhookValidationOptions(req);
+  const triedUrls = validationOptions
+    .map((o) => o.url ?? (o.host ? `${o.protocol ?? "https"}://${o.host}${req.originalUrl.split("?")[0]}` : ""))
+    .filter(Boolean);
+  const paramCount = Object.keys(req.body ?? {}).length;
+
+  for (const token of tokens) {
+    for (const opts of validationOptions) {
+      if (twilio.validateExpressRequest(expressReq, token, opts)) {
+        return { valid: true, triedUrls, paramCount };
+      }
+    }
+  }
+
+  return { valid: false, triedUrls, paramCount };
 }
