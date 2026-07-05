@@ -1,6 +1,7 @@
 /**
- * Normalize text to GSM-7 so SMS stays 160 chars per segment (no UCS-2).
- * Replaces common Unicode that appears in verse text and app copy.
+ * Normalize text to GSM-7 so SMS stays 160 chars per segment (1120-bit payload).
+ * Non-GSM characters force UCS-2 (70 chars/segment) — we replace common Unicode instead.
+ * See sms-encoding.ts for 8-bit (140) and UCS-2 (70) limits.
  */
 const REPLACEMENTS: Array<[RegExp | string, string]> = [
   ["\u2019", "'"],   // RIGHT SINGLE QUOTATION MARK (curly apostrophe)

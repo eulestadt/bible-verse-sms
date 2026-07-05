@@ -216,7 +216,7 @@ export function getLandingHtml(): string {
 
     <section id="ai-chat" class="chat-section">
       <h2>AI Chat via Text</h2>
-      <p>Sign up here, then <strong>text our number <a href="tel:+17172971356">(717) 297-1356</a></strong> to chat with AI. We send replies through your carrier&apos;s email-to-SMS gateway (Verizon, AT&amp;T, T-Mobile, etc.) so you don&apos;t need to reply to a separate thread — just keep texting our number.</p>
+      <p>Sign up here, then <strong>text our number <a href="tel:+17172971356">(717) 297-1356</a></strong> to chat with AI. Outbound messages go through your carrier&apos;s email gateway (Verizon uses <span class="example">@vzwpix.com</span> for MMS; others use SMS gateways like <span class="example">@txt.att.net</span>).</p>
       <div class="card">
         <form id="chat-signup-form">
           <div class="form-group">

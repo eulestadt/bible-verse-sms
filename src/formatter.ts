@@ -1,8 +1,11 @@
 import type { BiblePassageResult } from "./bible-api";
-import { getSmsSegmentLimit } from "./carriers";
-
-const MAX_SMS_SEGMENT = 160;
-const MAX_SMS_SEGMENTS = 4;
+import { getSmsSegmentLimit, isMmsCarrier } from "./carriers";
+import { toGsm7 } from "./gsm7";
+import {
+  DEFAULT_SMS_SEGMENT,
+  GSM7_CHARS_PER_SEGMENT,
+  MAX_SMS_SEGMENTS,
+} from "./sms-encoding";
 
 /**
  * Format verse + version label + optional context + attribution for SMS.
@@ -17,9 +20,7 @@ export function formatReply(
   }
 
   const versionLabel = passage.version || "KJV";
-  // Strip [...] (e.g. verse numbers) from content to maximize space for verse text
   const content = passage.content.replace(/\s*\[[^\]]*\]\s*/g, " ").replace(/\s+/g, " ").trim();
-  // Compact format: reference + version, single newline, then content
   let body = `${passage.reference} ${versionLabel}\n${content}`;
 
   if (passage.copyright) {
@@ -30,11 +31,10 @@ export function formatReply(
 }
 
 /**
- * Split long message into segments (each <= maxSegment) if needed.
- * Twilio sends each as a separate SMS; email-to-SMS should pass a lower maxSegment
- * when the carrier appends text (e.g. Verizon adds "(Message)").
+ * Split long message into segments (each <= maxSegment).
+ * Uses GSM-7 segment size (160 chars) unless a lower limit is passed for carrier suffix overhead.
  */
-export function segmentForSms(text: string, maxSegment = MAX_SMS_SEGMENT): string[] {
+export function segmentForSms(text: string, maxSegment = GSM7_CHARS_PER_SEGMENT): string[] {
   if (text.length <= maxSegment) return [text];
   const segments: string[] = [];
   let remaining = text;
@@ -52,13 +52,18 @@ export function segmentForSms(text: string, maxSegment = MAX_SMS_SEGMENT): strin
   return segments;
 }
 
-/** Split for outbound email-to-SMS; respects carrier suffix overhead. */
+/** Split for outbound email-to-SMS/MMS; respects carrier encoding and MMS gateways. */
 export function splitForSending(
   text: string,
   carrierId?: string,
   maxSegments = MAX_SMS_SEGMENTS
 ): string[] {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  const maxSegment = carrierId ? getSmsSegmentLimit(carrierId) : MAX_SMS_SEGMENT;
+  const normalized = toGsm7(text.replace(/\s+/g, " ").trim());
+  const maxSegment = carrierId ? getSmsSegmentLimit(carrierId) : DEFAULT_SMS_SEGMENT;
+
+  if (carrierId && isMmsCarrier(carrierId)) {
+    return normalized.length <= maxSegment ? [normalized] : segmentForSms(normalized, maxSegment);
+  }
+
   return segmentForSms(normalized, maxSegment).slice(0, maxSegments);
 }

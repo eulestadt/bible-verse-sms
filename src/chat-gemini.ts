@@ -1,20 +1,32 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { getSmsSegmentLimit } from "./carriers";
+import { getSmsMaxChars, getSmsSegmentLimit, isMmsCarrier } from "./carriers";
 import { getConfig } from "./config";
 import { segmentForSms } from "./formatter";
 import { toGsm7 } from "./gsm7";
+import { MAX_SMS_SEGMENTS } from "./sms-encoding";
 import type { ChatMessage } from "./chat-store";
 
-const MAX_SEGMENTS = 4;
+function buildChatSystemPrompt(carrierId: string): string {
+  const segmentLimit = getSmsSegmentLimit(carrierId);
+  const maxChars = getSmsMaxChars(carrierId);
+  const mms = isMmsCarrier(carrierId);
 
-function buildChatSystemPrompt(segmentLimit: number): string {
-  const maxChars = segmentLimit * MAX_SEGMENTS;
-  return `You are a friendly, helpful AI assistant. The user is texting you via SMS, so keep every reply short.
+  if (mms) {
+    return `You are a friendly, helpful AI assistant. The user is texting you via MMS, so keep replies concise but you have more room than SMS.
+
+Rules:
+- Prefer ONE message (under ${segmentLimit} characters) when the answer fits.
+- Never exceed ${maxChars} characters total.
+- Be warm, direct, and conversational. No markdown, bullet lists, or long paragraphs.
+- If a topic needs more detail, give the essential answer briefly and offer to elaborate.
+- Do not mention that you are an AI unless asked.`;
+  }
+
+  return `You are a friendly, helpful AI assistant. The user is texting you via SMS (GSM-7, 160 characters per segment), so keep every reply short.
 
 Rules:
 - Prefer ONE text message (under ${segmentLimit} characters) when the answer fits.
-- Never exceed ${maxChars} characters total (about ${MAX_SEGMENTS} SMS segments).
-- The user's carrier may append extra text to each message, so stay well under the limit.
+- Never exceed ${maxChars} characters total (about ${MAX_SMS_SEGMENTS} SMS segments).
 - Be warm, direct, and conversational. No markdown, bullet lists, or long paragraphs.
 - If a topic needs more detail, give the essential answer briefly and offer to elaborate.
 - Do not mention that you are an AI unless asked.`;
@@ -26,7 +38,6 @@ export async function generateChatReply(
   carrierId: string
 ): Promise<string> {
   const { geminiApiKey, geminiModel } = getConfig();
-  const segmentLimit = getSmsSegmentLimit(carrierId);
 
   if (!geminiApiKey) {
     return "AI chat is not configured yet. Please try again later.";
@@ -35,7 +46,7 @@ export async function generateChatReply(
   const genAI = new GoogleGenerativeAI(geminiApiKey);
   const model = genAI.getGenerativeModel({
     model: geminiModel,
-    systemInstruction: buildChatSystemPrompt(segmentLimit),
+    systemInstruction: buildChatSystemPrompt(carrierId),
   });
 
   const contents = history.map((m) => ({
@@ -57,13 +68,19 @@ export async function generateChatReply(
   }
 }
 
-/** Normalize and cap reply to at most 4 SMS segments. */
+/** Normalize and cap reply length for the user's carrier (SMS segments or MMS body). */
 export function trimToSmsSegments(text: string, carrierId: string): string {
   const normalized = toGsm7(text.replace(/\s+/g, " ").trim());
   const maxSegment = getSmsSegmentLimit(carrierId);
+  const maxChars = getSmsMaxChars(carrierId);
+
+  if (isMmsCarrier(carrierId)) {
+    return normalized.length <= maxChars ? normalized : normalized.slice(0, maxChars).trim();
+  }
+
   const segments = segmentForSms(normalized, maxSegment);
-  if (segments.length <= MAX_SEGMENTS) {
+  if (segments.length <= MAX_SMS_SEGMENTS) {
     return segments.join("\n");
   }
-  return segments.slice(0, MAX_SEGMENTS).join("\n");
+  return segments.slice(0, MAX_SMS_SEGMENTS).join("\n");
 }
